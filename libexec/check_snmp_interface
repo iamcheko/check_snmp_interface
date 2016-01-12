@@ -1,0 +1,1361 @@
+#!/usr/bin/perl -w --
+#------------------------------------------------------------------------------
+#
+#   Programm        : check_snmp_interface
+#
+#------------------------------------------------------------------------------
+#
+#   Beschreibung    : Nagios check script to observe the status of a network
+#                     interface by SNMP
+#
+#   Autor           : Marek Zavesicky
+#   Copyright (C)   : (2015-2016) Marek Zavesicky
+#   Version         : $Revision: $
+#   Erstellt        : 2015/10/22
+#   Letztes Update  : $Date: $
+#
+#   $Id: $
+#   Change history  :
+#                     $Log: $
+#
+#   This program is free software; you can redistribute it and/or modify it
+#   under the terms of the GNU General Public License as published by the
+#   Free Software Foundation; either version 2 of the License, or (at your
+#   option) any later version.  See <http://www.fsf.org/copyleft/gpl.txt>.
+#
+#   This program is distributed in the hope that it will be useful, but
+#   WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+#   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+#   for more details.
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+#                     Pragma
+#-------------------------------------------------------------------------------
+use strict;
+use warnings;
+
+#-------------------------------------------------------------------------------
+#                     Used Modules
+#-------------------------------------------------------------------------------
+use lib qw( /usr/local/nrpe/perl/lib );
+use Nagios::Plugin;
+use Net::SNMP;
+use Data::Dumper;
+
+#-------------------------------------------------------------------------------
+#   Package         : InterfaceV1
+#-------------------------------------------------------------------------------
+{
+    package InterfaceV1;
+
+    use strict;
+    use warnings;
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : new
+    #-------------------------------------------------------------------------------
+    #   Description     : Create a new object of type InterfaceV1.
+    #
+    #   Input           : $class        Reference to this class
+    #                     session       Reference to Net::SNMP object
+    #                     ifindex       the SNMP index of the interface
+    #   Output          : $self         The reference to this object
+    #-------------------------------------------------------------------------------
+    sub new
+    {
+        my $class = shift;
+        my $self = {
+            'session'                       => shift,
+            'ifindex'                       => shift,
+            'ifoutdiscards'                 => 0,
+            'ifoutoctets'                   => 0,
+            'ifspeed'                       => 0,
+            'ifindiscards'                  => 0,
+            'ifadminstatus'                 => 0,
+            'ifoperstatus'                  => 0,
+            'ifouterrors'                   => 0,
+            'ifinoctets'                    => 0,
+            'ifdescr'                       => '',
+            'ifinerrors'                    => 0,
+            'l_ifoutdiscards'               => 0,
+            'l_ifoutoctets'                 => 0,
+            'l_ifindiscards'                => 0,
+            'l_ifouterrors'                 => 0,
+            'l_ifinoctets'                  => 0,
+            'l_ifinerrors'                  => 0,
+            'timegap'                       => 0,
+            'unit'                          => "Bps"
+        };
+        bless $self, $class;
+        $self->_init();
+
+        return $self;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : _init
+    #-------------------------------------------------------------------------------
+    #   Description     : Initialisation methode for class InterfaceV1.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : $self         Reference to this object
+    #-------------------------------------------------------------------------------
+    sub _init
+    {
+        my $self = shift;
+
+        $self->setKeyByOID( 'ifindex',       '.1.3.6.1.2.1.2.2.1.1'  . "." . $self->getByKey( "ifindex" ) );
+        $self->setKeyByOID( 'ifdescr',       '.1.3.6.1.2.1.2.2.1.2'  . "." . $self->getByKey( "ifindex" ) );
+        $self->setKeyByOID( 'ifspeed',       '.1.3.6.1.2.1.2.2.1.5'  . "." . $self->getByKey( "ifindex" ), {}, ( 1 / 8 ) );
+        $self->setKeyByOID( 'ifadminstatus', '.1.3.6.1.2.1.2.2.1.7'  . "." . $self->getByKey( "ifindex" ), { 1 => 'up', 2 => 'down', 3 => 'testing' } );
+        $self->setKeyByOID( 'ifoperstatus',  '.1.3.6.1.2.1.2.2.1.8'  . "." . $self->getByKey( "ifindex" ), { 1 => 'up', 2 => 'down', 3 => 'testing', 4 => 'unknown', 5 => 'dormant', 6 => 'notpresent', 7 => 'lowerlayerdown' } );
+        $self->setKeyByOID( 'ifinoctets',    '.1.3.6.1.2.1.2.2.1.10' . "." . $self->getByKey( "ifindex" ) );
+        $self->setKeyByOID( 'ifindiscards',  '.1.3.6.1.2.1.2.2.1.13' . "." . $self->getByKey( "ifindex" ) );
+        $self->setKeyByOID( 'ifinerrors',    '.1.3.6.1.2.1.2.2.1.14' . "." . $self->getByKey( "ifindex" ) );
+        $self->setKeyByOID( 'ifoutoctets',   '.1.3.6.1.2.1.2.2.1.16' . "." . $self->getByKey( "ifindex" ) );
+        $self->setKeyByOID( 'ifoutdiscards', '.1.3.6.1.2.1.2.2.1.19' . "." . $self->getByKey( "ifindex" ) );
+        $self->setKeyByOID( 'ifouterrors',   '.1.3.6.1.2.1.2.2.1.20' . "." . $self->getByKey( "ifindex" ) );
+
+        return $self;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : getByKey
+    #-------------------------------------------------------------------------------
+    #   Description     : Get value by key name.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $key          Key name of the needed value
+    #   Output          : $value        The value of the requestet key
+    #-------------------------------------------------------------------------------
+    sub getByKey
+    {
+        my $self = shift;
+        my $key = shift;
+
+        return $self->{ lc( $key ) };
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : setByKey
+    #-------------------------------------------------------------------------------
+    #   Description     : Set value by key name.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $key          Name of the key that needs to be set
+    #                     $value        The value of the given key
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub setByKey
+    {
+        my $self = shift;
+        my $key = shift;
+        my $value = shift;
+
+        $self->{ lc( $key ) } = $value;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : setKeyByOID
+    #-------------------------------------------------------------------------------
+    #   Description     : Set value for key by OID.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $key          Key of the OID that needs to be set
+    #                     $oid          The OID that needs to be set
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub setKeyByOID
+    {
+        my $self = shift;
+        my $key = shift;
+        my $oid = shift;
+        my $options = shift;
+        my $factor = shift;
+
+        if ( $factor )
+        {
+            $self->{ lc( $key ) } = ( $self->{ session }->get_request( $oid ) )->{ $oid } * $factor;
+        }
+        elsif ( $options )
+        {
+            $self->{ lc( $key ) } = $options->{ ( $self->{ session }->get_request( $oid ) )->{ $oid } };
+        }
+        else
+        {
+            $self->{ lc( $key ) } = ( $self->{ session }->get_request( $oid ) )->{ $oid };
+        }
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : setTimeGap
+    #-------------------------------------------------------------------------------
+    #   Description     : Set the time gap between measures.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $timegap      The time in seconds to set
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub setTimeGap
+    {
+        my $self = shift;
+        my $timegap = shift;
+
+        $self->{ timegap } = $timegap;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : getUnitByKey
+    #-------------------------------------------------------------------------------
+    #   Description     : Get the unit of a key.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $key          The key of the needed unit
+    #   Output          : $unit         The unit of the key
+    #-------------------------------------------------------------------------------
+    sub getUnitByKey
+    {
+        my $self = shift;
+        my $key = shift;
+
+        if ( $key =~ /discards/ or $key =~ /errors/ )
+        {
+            return "pkts";
+        }
+        elsif ( $key =~ /octets/ )
+        {
+            return $self->getByKey( 'unit' );
+        }
+        elsif ( $key =~ /percent/ )
+        {
+            return "%";
+        }
+        else
+        {
+            return "";
+        }
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : setUnit
+    #-------------------------------------------------------------------------------
+    #   Description     : set the unit of the object. This is only for the in- and
+    #                     outbound traffic valid.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $unit         Must be on of the available units.
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub setUnit
+    {
+        my $self = shift;
+        my $unit = shift;
+
+        $self->{ unit } = $unit;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : setDiffByKey
+    #-------------------------------------------------------------------------------
+    #   Description     : Set the diference between to measures for a given key.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $key          The key of the object variable to be set
+    #                     $cnt1         The last measured counter
+    #                     $cnt2         The counter measured before
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub setDiffByKey
+    {
+        my $self = shift;
+        my $key = shift;
+        my $cnt1 = shift;
+        my $cnt2 = shift;
+        my $timegap = shift;
+
+        if ( $cnt1 >= $cnt2 )
+        {
+            $self->setByKey( $key, ( $cnt1 - $cnt2 ) / $timegap );
+        }
+        else
+        {
+            $self->setByKey( $key, ( 2**32 - ( $cnt2 - $cnt1 ) ) / $timegap );
+        }
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : setFileData
+    #-------------------------------------------------------------------------------
+    #   Description     : Create temporary hash entries for the data stored in the
+    #                     file.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $key          The key of the measure
+    #                     $value        The value of that key
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub setFileData
+    {
+        my $self = shift;
+        my $key = shift;
+        my $value = shift;
+
+        $self->{ 'l_' . $key } = $value;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : getFileData
+    #-------------------------------------------------------------------------------
+    #   Description     : Create the new content of the file.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : $data         The new content of a file
+    #-------------------------------------------------------------------------------
+    sub getFileData
+    {
+        my $self = shift;
+        my $data = "";
+
+        foreach ( keys %$self )
+        {
+            next unless /^ifoutdiscards|^ifoutoctets|^ifindiscards|^ifouterrors|^ifinoctets|^ifinerrors/;
+            $data .= $_ . " = " . $self->{ $_ } . "\n";
+        }
+        return $data
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : toUnit
+    #-------------------------------------------------------------------------------
+    #   Description     : Calculate from octets to the unit of choice.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $key          The key of the value which has to be
+    #                                   converted
+    #                     $unit         The unit to which the value has to be
+    #                                   converted
+    #   Output          : $value        The converted value
+    #-------------------------------------------------------------------------------
+    sub toUnit
+    {
+        my $self = shift;
+        my $key = shift;
+        my $unit = shift;
+
+        if ( $unit eq "bps" )
+        {
+            return $self->getByKey( $key ) * 8;
+        }
+        elsif ( $unit eq "kbps" )
+        {
+            return $self->getByKey( $key ) * 8 / 1024;
+        }
+        elsif ( $unit eq "Mbps" )
+        {
+            return $self->getByKey( $key ) * 8 / 1024**2;
+        }
+        elsif ( $unit eq "Gbps" )
+        {
+            return $self->getByKey( $key ) * 8 / 1024**3;
+        }
+        elsif ( $unit eq "Bps" )
+        {
+            return $self->getByKey( $key );
+        }
+        elsif ( $unit eq "kBps" )
+        {
+            return $self->getByKey( $key ) / 1024;
+        }
+        elsif ( $unit eq "MBps" )
+        {
+            return $self->getByKey( $key ) / 1024**2;
+        }
+        elsif ( $unit eq "GBps" )
+        {
+            return $self->getByKey( $key ) / 1024**3;
+        }
+        elsif ( $unit eq "%" )
+        {
+            if ( $self->getByKey( 'ifspeed' ) eq 0 )
+            {
+                return 100;
+            }
+            else
+            {
+                return $self->getByKey( $key ) *  100 / $self->getByKey( 'ifspeed' );
+            }
+        }
+        else
+        {
+            return $self->getByKey( $key );
+        }
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : printAll
+    #-------------------------------------------------------------------------------
+    #   Description     : This methode prints all the key value pairs. Only used
+    #                     for verbose output.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub printAll
+    {
+        my $self = shift;
+
+        print "Values for interface " . $self->getByKey( "ifdescr" ) . "\n";
+        print "----------------------------------------------------------------------------------------------\n";
+        print "\tTime between measure     = " . $self->getByKey( "timegap" ) . "\n";
+        print "\tInterface index          = " . $self->getByKey( "ifindex" ) . "\n";
+        print "\tInterface description    = " . $self->getByKey( "ifdescr" ) . "\n";
+        print "\tBandwidth                = " . $self->getByKey( "ifspeed" ) . "\n";
+        print "\tInput traffic            = " . $self->getByKey( "ifinoctets" ) . " Octets per Second\n";
+        print "\tOutput traffic           = " . $self->getByKey( "ifoutoctets" ) . " Octets per Second\n";
+        print "\tOperation status         = " . $self->getByKey( "ifoperstatus" ) . "\n";
+        print "\tAdministration status    = " . $self->getByKey( "ifadminstatus" ) . "\n";
+        print "\tInput discards           = " . $self->getByKey( "ifindiscards" ) . " Packets per Second\n";
+        print "\tOutput discards          = " . $self->getByKey( "ifoutdiscards" ) . " Packets per Second\n";
+        print "\tInput errors             = " . $self->getByKey( "ifinerrors" ) . " Packets per Second\n";
+        print "\tOutput errors            = " . $self->getByKey( "ifouterrors" ) . " Packets per Second\n";
+        print "\n";
+    }
+}
+
+#-------------------------------------------------------------------------------
+#   Package         : InterfaceV2
+#-------------------------------------------------------------------------------
+{
+    package InterfaceV2;
+
+    use parent -norequire, 'InterfaceV1';
+    use strict;
+    use warnings;
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : new
+    #-------------------------------------------------------------------------------
+    #   Description     : Create a new object of type InterfaceV2.
+    #
+    #   Input           : $class        Reference to this class
+    #                     session       Reference to Net::SNMP object
+    #                     ifindex       The SNMP index of the network interface
+    #   Output          : $self         The reference to this object
+    #-------------------------------------------------------------------------------
+    sub new
+    {
+        my $class = shift;
+        my $self = {
+            'session'                       => shift,
+            'ifindex'                       => shift,
+            'ifpromiscuousmode'             => 0,
+            'ifinoctets'                    => 0,
+            'ifname'                        => '',
+            'ifoutoctets'                   => 0,
+            'ifalias'                       => '',
+            'l_ifinoctets'                  => 0,
+            'l_ifoutoctets'                 => 0
+        };
+        bless $self, $class;
+        $self->SUPER::_init();
+        $self->_init();
+
+        return $self;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : _init
+    #-------------------------------------------------------------------------------
+    #   Description     : Initialisation methode for class InterfaceV1.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : $self         Reference to this object
+    #-------------------------------------------------------------------------------
+    sub _init
+    {
+        my $self = shift;
+
+        $self->setKeyByOID( 'ifname',            '.1.3.6.1.2.1.31.1.1.1.1'  . "." . $self->getByKey( "ifindex" ) );
+        $self->setKeyByOID( 'ifinoctets',        '.1.3.6.1.2.1.31.1.1.1.6'  . "." . $self->getByKey( "ifindex" ) );
+        $self->setKeyByOID( 'ifoutoctets',       '.1.3.6.1.2.1.31.1.1.1.10' . "." . $self->getByKey( "ifindex" ) );
+        $self->setKeyByOID( 'ifspeed',           '.1.3.6.1.2.1.31.1.1.1.15' . "." . $self->getByKey( "ifindex" ), {}, ( 10 ** 6 / 8 ) );
+        $self->setKeyByOID( 'ifpromiscuousmode', '.1.3.6.1.2.1.31.1.1.1.16' . "." . $self->getByKey( "ifindex" ), { 1 => 'on', 2 => 'off' } );
+        $self->setKeyByOID( 'ifalias',           '.1.3.6.1.2.1.31.1.1.1.18' . "." . $self->getByKey( "ifindex" ) );
+
+        return $self;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : setDiffByKey
+    #-------------------------------------------------------------------------------
+    #   Description     : Set the diference between to measures for a given key.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $key          The key of the object variable to be set
+    #                     $cnt1         The last measured counter
+    #                     $cnt2         The counter measured before
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub setDiffByKey
+    {
+        my $self = shift;
+        my $key = shift;
+        my $cnt1 = shift;
+        my $cnt2 = shift;
+        my $timegap = shift;
+
+        if ( $cnt1 >= $cnt2 )
+        {
+            $self->setByKey( $key, ( $cnt1 - $cnt2 ) / $timegap );
+        }
+        else
+        {
+            $self->setByKey( $key, ( 2**64 - ( $cnt2 - $cnt1 ) ) / $timegap );
+        }
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : printAll
+    #-------------------------------------------------------------------------------
+    #   Description     : This methode prints all the key value pairs. Only used
+    #                     for verbose output.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub printAll
+    {
+        my $self = shift;
+        my $unit = shift;
+
+        print "Values for interface " . $self->getByKey( "ifdescr" ) . "\n";
+        print "----------------------------------------------------------------------------------------------\n";
+        print "\tTime between measure     = " . $self->getByKey( "timegap" ) . "\n";
+        print "\tInterface index          = " . $self->getByKey( "ifindex" ) . "\n";
+        print "\tInterface name           = " . $self->getByKey( "ifname" ) . "\n";
+        print "\tInterface description    = " . $self->getByKey( "ifdescr" ) . "\n";
+        print "\tInterface alias          = " . $self->getByKey( "ifalias" ) . "\n";
+        print "\tInput traffic            = " . $self->getByKey( "ifinoctets" ) . " Octets per Second\n";
+        print "\tOutput traffic           = " . $self->getByKey( "ifoutoctets" ) . " Octets per Second\n";
+        print "\tOperation status         = " . $self->getByKey( "ifoperstatus" ) . "\n";
+        print "\tAdministration status    = " . $self->getByKey( "ifadminstatus" ) . "\n";
+        print "\tInput discards           = " . $self->getByKey( "ifindiscards" ) . " Packets per Second\n";
+        print "\tOutput discards          = " . $self->getByKey( "ifoutdiscards" ) . " Packets per Second\n";
+        print "\tInput errors             = " . $self->getByKey( "ifinerrors" ) . " Packets per Second\n";
+        print "\tOutput errors            = " . $self->getByKey( "ifouterrors" ) . " Packets per Second\n";
+        print "\tPromiscuous mode         = " . $self->getByKey( "ifpromiscuousmode" ) . "\n";
+        print "\tBandwidth                = " . $self->getByKey( "ifspeed" ) . "\n";
+        print "\n";
+    }
+}
+
+
+#-------------------------------------------------------------------------------
+#   Package         : Interfaces
+#-------------------------------------------------------------------------------
+{
+    package Interfaces;
+
+    #---------------------------------------------------------------------------
+    #                     Pragma
+    #---------------------------------------------------------------------------
+    use strict;
+    use warnings;
+
+    use Data::Dumper;
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : new
+    #-------------------------------------------------------------------------------
+    #   Description     : Create a new object of type Interfaces.
+    #
+    #   Input           : $class        Reference to this class
+    #                     session       Reference to a Net::SNMP Session
+    #                     type          Type of name like ifName, ifDescr, or
+    #                                   ifAlias
+    #                     name          The name of the networkinterface
+    #                     regex         Flag to use regex
+    #                     version       Version of the SNMP protocol
+    #   Output          : $self         The reference to this object
+    #-------------------------------------------------------------------------------
+    sub new
+    {
+        my $class = shift;
+        my $self = {
+            'session'                       => shift,
+            'type'                          => lc( shift ),
+            'name'                          => shift,
+            'regex'                         => shift,
+            'version'                       => shift,
+            'interfaces'                    => {},
+            'names'                         => []
+        };
+        bless $self, $class;
+
+        $self->_init();
+
+        return $self;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : _init
+    #-------------------------------------------------------------------------------
+    #   Description     : Initialisation methode for class Interfaces.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : $self         Reference to this object
+    #-------------------------------------------------------------------------------
+    sub _init
+    {
+        my $self = shift;
+        my $types                       = {
+            ifdescr                     => '.1.3.6.1.2.1.2.2.1.2',
+            ifname                      => '.1.3.6.1.2.1.31.1.1.1.1',
+            ifalias                     => '.1.3.6.1.2.1.31.1.1.1.18',
+        };
+        my $baseoid;
+        my $iflist;
+
+        $baseoid = $types->{ $self->_getType() };
+        if ( $baseoid )
+        {
+            $iflist = $self->_getSession()->get_table( Baseoid => $baseoid );
+            die( "Could not read description table" ) unless ( defined( $iflist ) );
+        }
+        else
+        {
+            die( "Undefined field: " . $self->_getType() );
+        }
+
+        # Iterate over all interfaces and put all matching names in a list
+        foreach( keys %$iflist )
+        {
+            if ( defined( $self->_getRegex() ) )
+            {
+                my $if = $self->_getName();
+                if( $iflist->{ $_ } =~ /$if/ )
+                {
+                    $self->_updateList( $iflist->{ $_ }, $_ );
+                }
+            }
+            elsif ( defined( $self->_getName() ) )
+            {
+                if ( $iflist->{ $_ } eq $self->_getName() )
+                {
+                    $self->_updateList( $iflist->{ $_ }, $_ );
+                }
+            }
+            else
+            {
+                $self->_updateList( $iflist->{ $_ }, $_ );
+            }
+        }
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : getNames
+    #-------------------------------------------------------------------------------
+    #   Description     : Return all names of this object.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : $names        list of all names
+    #-------------------------------------------------------------------------------
+    sub getNames
+    {
+        my $self = shift;
+
+        return $self->{ names };
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : getRefByName
+    #-------------------------------------------------------------------------------
+    #   Description     : Return the reference to an interface object for a given
+    #                     name.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $name         Nema of the needed interface reference
+    #   Output          : $name         The reference to a object
+    #-------------------------------------------------------------------------------
+    sub getRefByName
+    {
+        my $self = shift;
+        my $name = shift;
+
+        return $self->{ interfaces }->{ $name };
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : writeData
+    #-------------------------------------------------------------------------------
+    #   Description     : Write the time gap and traffic informations to a file for
+    #                     later use.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $np           Reference to Monitoring::Plugin
+    #                     $if           Name of the interface
+    #                     $gap          Reference to gap hash
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub writeData
+    {
+        my $self = shift;
+        my $np = shift;
+        my $if = shift;
+        my $gap = shift;
+        my $file = "";
+
+        $file = $np->opts->directory . "/" . $np->opts->hostname . "_" . $np->opts->gapfile;
+        $file =~ s/__IF__/$if/g;
+
+        open( FILE, ">", $file ) or $np->nagios_die( "cant open file $file for writing" );
+        print FILE "gap = " . $gap->{ 'ts_new' } . "\n";
+        print FILE $self->{ interfaces }->{ $if }->getFileData();
+        close( FILE );
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : readData
+    #-------------------------------------------------------------------------------
+    #   Description     : Read the data out of the gap file and store it back to the
+    #                     object.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $np           Reference to Monitoring::Plugin
+    #                     $if           Name of the interface
+    #                     $gap          Reference to gap hash
+    #   Output          : $return       Return 0/1 if success or fail
+    #-------------------------------------------------------------------------------
+    sub readData
+    {
+        my $self = shift;
+        my $np = shift;
+        my $if = shift;
+        my $gap = shift;
+        my $file = "";
+
+        $file = $np->opts->directory . "/" . $np->opts->hostname . "_" . $np->opts->gapfile;
+        $file =~ s/__IF__/$if/g;
+
+        if ( -e $file )
+        {
+            open( FILE, "<", $file ) or $np->nagios_die( "cant open file $file for reading" );
+
+            while ( <FILE> )
+            {
+                chomp;
+                my ( $key, $value ) = split( '\s+=\s+', $_ );
+                if ( $key eq "gap" )
+                {
+                    $gap->{ 'ts_gap' } = $gap->{ 'ts_new' } - $value;
+                }
+                else
+                {
+                    $self->{ interfaces }->{ $if }->setFileData( $key, $value );
+                }
+            }
+            close( FILE );
+            return 1;
+        }
+        return 0;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : calcDiff
+    #-------------------------------------------------------------------------------
+    #   Description     : Calculate the difference between two measurepoints and
+    #                     store the result in the related object.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $np           Reference to Monitoring::Plugin
+    #                     $if           The name of the network interface
+    #                     $gap          Reference to gap hash
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub calcDiff
+    {
+        my $self = shift;
+        my $np = shift;
+        my $if = shift;
+        my $gap = shift;
+        my $refif;
+
+        $refif = $self->getRefByName( $if );
+        open( FILE, ">>", "/tmp/interface_eth0" ) or $np->nagios_die( "cant open file /tmp/interface_eth0 for writing" );
+
+        foreach ( keys %{ $refif } )
+        {
+            my $key;
+            my ( $k1, $k2, $dt );
+
+            next unless /^l_if/;
+            $key = $_;
+            $key =~ s/^l_//;
+
+            if ( $refif->{ $key } )
+            {
+                $k1 = $refif->{ $key };
+                $k2 = $refif->{ $_ };
+                $dt = $gap->{ ts_gap };
+
+                $refif->setTimeGap( $gap->{ ts_gap } );
+                $refif->setDiffByKey( $key, $k1, $k2, $dt );
+                delete $refif->{ $_ };
+            }
+        }
+        print FILE "\n";
+        close( FILE );
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : _updateList
+    #-------------------------------------------------------------------------------
+    #   Description     : Create a hash list of all related network interfaces.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $ifname       Name of the network interface
+    #                     $oid          The OID of the related interface
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub _updateList
+    {
+        my $self = shift;
+        my $ifname = shift;
+        my $oid = shift;
+
+        if ( $self->{ version } eq 1 )
+        {
+            $self->_setInterface( $ifname, new InterfaceV1( $self->_getSession(), $self->_getIndex( $oid ) ) );
+        }
+        else
+        {
+            $self->_setInterface( $ifname, new InterfaceV2( $self->_getSession(), $self->_getIndex( $oid ) ) );
+        }
+        push( @{ $self->{ names } }, $ifname );
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : _getSession
+    #-------------------------------------------------------------------------------
+    #   Description     : Return a reference to the SNMP session.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : session       Reference to Net:SNMP
+    #-------------------------------------------------------------------------------
+    sub _getSession
+    {
+        my $self = shift;
+
+        return $self->{ session };
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : _setInterface
+    #-------------------------------------------------------------------------------
+    #   Description     : Stor the reference to a network interface object to this
+    #                     object.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $ifname       The name of the network interface
+    #                     $obj          The reference to the network interface
+    #                                   object
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub _setInterface
+    {
+        my $self = shift;
+        my $ifname = shift;
+        my $obj = shift;
+
+        $self->{ interfaces }->{ $ifname } = $obj;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : _getRegex
+    #-------------------------------------------------------------------------------
+    #   Description     : Returns the stored regex.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : regex         The regex
+    #-------------------------------------------------------------------------------
+    sub _getRegex
+    {
+        my $self = shift;
+
+        return $self->{ regex };
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : _getName
+    #-------------------------------------------------------------------------------
+    #   Description     : Returns the name of the network interface.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : name          The name of the network interface
+    #-------------------------------------------------------------------------------
+    sub _getName
+    {
+        my $self = shift;
+
+        return $self->{ name };
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : _getType
+    #-------------------------------------------------------------------------------
+    #   Description     : Return the type of the network interface name.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : type          The type of the network interface name
+    #-------------------------------------------------------------------------------
+    sub _getType
+    {
+        my $self = shift;
+
+        if ( $self->{ version } == 1 )
+        {
+            $self->{ type } = "ifdescr";
+        }
+
+        return $self->{ type };
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : _getIndex
+    #-------------------------------------------------------------------------------
+    #   Description     : Return the SNMP index of the network interface.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $oid          The OID of the network interface
+    #   Output          : index         The SNMP index of the network interface
+    #-------------------------------------------------------------------------------
+    sub _getIndex
+    {
+        my $self = shift;
+        my $oid = shift;
+
+        return ( split( /\./, $oid ) )[ -1 ];
+    }
+}
+
+
+#-------------------------------------------------------------------------------
+#   Package         : Main
+#-------------------------------------------------------------------------------
+{
+    package main;
+
+
+    #---------------------------------------------------------------------------
+    #                     Global Variables
+    #---------------------------------------------------------------------------
+    my $NAME = "check_snmp_interface";
+    my $SHORTNAME = "Network Interface";
+    my $VERSION = "0.0.1";
+    my $LICENSE = "GNU v2 or later, see <http://www.fsf.org/copyleft/gpl.txt>";
+
+    #---------------------------------------------------------------------------
+    #                     Sub createSnmpSession
+    #---------------------------------------------------------------------------
+    #   Function        : This function tries to create the SNMP session.
+    #
+    #   Input           : np            Nagios Plugin reference
+    #                     session       SNMP session reference
+    #   Output          : -             none
+    #---------------------------------------------------------------------------
+    sub createSnmpSession
+    {
+        my $np          = shift;
+        my $session;
+        my $error;
+        my $options     = {
+            Hostname   => $np->opts->hostname,
+            Version    => $np->opts->snmpversion,
+            Port       => $np->opts->port,
+            Timeout    => $np->opts->timeout
+        };
+
+        if ( $np->opts->snmpversion == 3 )
+        {
+            print "Connecting SNMP Version 3\n" if ( $np->opts->verbose );
+            $options->{ Username }         = $np->opts->username;
+            $options->{ Authpassword }     = $np->opts->authpassword;
+            $options->{ Authprotocol }     = $np->opts->authprotocol;
+            if ( defined( $np->opts->privpass ) and defined( $np->opts->privproto ) )
+            {
+                $options->{ Privpass }     = $np->opts->privpass;
+                $options->{ PrivProto }    = $np->opts->privproto;
+            }
+        }
+        else
+        {
+            print "Connecting SNMP Version 1 or 2\n" if ( $np->opts->verbose );
+            $options->{ Community }        = $np->opts->community;
+        }
+
+        print Dumper( $options ) if ( $np->opts->verbose );
+
+        ( $session, $error ) = Net::SNMP->session( %$options );
+
+        # Exit if session is not defined
+        $np->nagios_die( "cant open SNMP Session: $error" ) unless ( defined( $session ) );
+
+        return $session;
+    }
+
+    #---------------------------------------------------------------------------
+    #                     Sub closeSnmpSession
+    #---------------------------------------------------------------------------
+    #   Function        : This function tries to close the SNMP session.
+    #
+    #   Input           : session       SNMP session reference
+    #   Output          : -             none
+    #---------------------------------------------------------------------------
+    sub closeSnmpSession
+    {
+        my $session     = shift;
+
+        $session->close();
+    }
+
+    #---------------------------------------------------------------------------
+    #                     Sub getIfObject
+    #---------------------------------------------------------------------------
+    #   Function        : This function tries to catch the index of the needed
+    #                     network interface.
+    #
+    #   Input           : np            Nagios Plugin reference
+    #                     snmp          SNMP session reference
+    #                     ifobject      the hash into wich we store the data
+    #                     scheme        the hash with all oids we need
+    #                     order         the array with the needed order
+    #   Output          : -             none
+    #---------------------------------------------------------------------------
+    sub getIfObject
+    {
+        my $np          = shift;
+        my $snmp        = shift;
+        my $ifobject    = shift;
+
+        $$ifobject = new Interfaces(
+            $snmp,
+            $np->opts->field,
+            $np->opts->name,
+            $np->opts->regex,
+            $np->opts->snmpversion
+        );
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : checkThresholds
+    #-------------------------------------------------------------------------------
+    #   Description     : Check the thresholds of all values and generate the
+    #                     message and performance data of the output.
+    #
+    #   Input           : $np           A reference to Monitoring::Plugin
+    #                     $if           A reference to the interface
+    #   Output          : $ret          The returned errorlevel
+    #                     $string       The message
+    #-------------------------------------------------------------------------------
+    sub checkThresholds
+    {
+        my $np = shift;
+        my $if = shift;
+        my @fields = split(",", $np->opts->show);
+        my @warning = split(",", $np->opts->warning) if ( $np->opts->warning );
+        my @critical = split(",", $np->opts->critical) if ( $np->opts->critical );
+        my @label = split(",", $np->opts->label) if ( $np->opts->label );
+        my @alias = split(",", $np->opts->alias) if ( $np->opts->alias );
+        my $interface = $if->getByKey( lc( $np->opts->field ) );
+        my $ret = 0;
+        my $string = "";
+
+        return ( 1, $interface . " parameters do not align. " ) if ( scalar @fields ne scalar @warning or scalar @fields ne scalar @critical );
+
+        for ( my $i = 0; $i < scalar @fields; $i++ )
+        {
+            $if->setUnit( $np->opts->unit );
+
+            if ( $warning[ $i ] ne "none" and $critical[ $i ] ne "none" )
+            {
+                my $r =  $np->check_threshold(
+                    check => $if->toUnit( $fields[ $i ], $if->getUnitByKey( $fields[ $i ] ) ),
+                    warning => $warning[ $i ],
+                    critical => $critical[ $i ]
+                );
+                $ret = $r if ( $ret < $r );
+            }
+            $np->add_perfdata(
+                label => $interface . "_" . $fields[ $i ],
+                value => $if->toUnit( $fields[ $i ], $if->getUnitByKey( $fields[ $i ] ) ),
+                uom => $if->getUnitByKey( $fields[ $i ] ),
+                warning => ( $warning[ $i ] ne "none" ) ? $warning[ $i ] : "",
+                critical => ( $critical[ $i ] ne "none" ) ? $critical[ $i ] : ""
+            );
+        }
+
+        # Generate the status string
+        $string .= " " . checkFlags( $np, $if ) if ( $np->opts->viewflags );
+        for ( my $i = 0; $i < scalar @label; $i++ )
+        {
+            my $a = $alias[ $i ] ? $alias[ $i ] : $label[ $i ];
+
+            $string .= sprintf( " %s=%3.2f%s ", $a, $if->toUnit( $label[ $i ], $if->getUnitByKey( $label[ $i ] ) ), $if->getUnitByKey( $label[ $i ] ) );
+        }
+
+        return $ret, $interface . $string;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : checkFlag
+    #-------------------------------------------------------------------------------
+    #   Description     : Compare a flag with a given value and color it.
+    #
+    #   Input           : $letter       A letter
+    #                     $flag         A flag
+    #                     $expected     A expected value of the flag
+    #                     $observe      Is the flag observed
+    #   Output          : $string       The message
+    #-------------------------------------------------------------------------------
+    sub checkFlag
+    {
+        my $letter = shift;
+        my $flag = shift;
+        my $expected = shift;
+        my $observe = shift;
+        my $string = "";
+
+        if ( $flag ne $expected )
+        {
+            $string = $observe ? '<span class="serviceCRITICAL">' . uc( $letter ) . '</span>' : '<span class="serviceCRITICALNO">' . lc( $letter ) . '</span>';
+        }
+        else
+        {
+            $string = $observe ? '<span class="serviceOK">' . uc( $letter ) . '</span>' : '<span class="serviceOKNO">' . lc( $letter ) . '</span>';
+        }
+        return $string;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : checkFlags
+    #-------------------------------------------------------------------------------
+    #   Description     : Check the flags of a network interface and generate the
+    #                     message for the output.
+    #
+    #   Input           : $np           A reference to Monitoring::Plugin
+    #                     $if           A reference to the interface
+    #   Output          : $string       The message
+    #-------------------------------------------------------------------------------
+    sub checkFlags
+    {
+        my $np = shift;
+        my $if = shift;
+        my $string = "";
+
+        $string .= checkFlag( 'A', $if->getByKey( 'ifadminstatus' ), "up", $np->opts->adminstat );
+        $string .= checkFlag( 'O', $if->getByKey( 'ifoperstatus' ), "up", $np->opts->operstat );
+        if ( $np->opts->snmpversion > 1 )
+        {
+            $string .= checkFlag( 'P', $if->getByKey( 'ifpromiscuousmode' ), "off", $np->opts->promiscuous );
+        }
+        return $string
+    }
+
+    #---------------------------------------------------------------------------
+    #                     Main
+    #---------------------------------------------------------------------------
+    my $snmp;
+    my $ifobject;
+    my $gapfile;
+    my $gap = ();
+    my $ret = 0;
+    my $string = "";
+
+    my $np = Nagios::Plugin->new(
+        usage       => "",
+        shortname   => $SHORTNAME,
+        version     => $VERSION,
+        license     => $LICENSE,
+        plugin      => $NAME,
+        timeout     => 15
+    );
+
+    $np->add_arg(
+        spec        => 'hostname|H=s',
+        help        => "The host name of the requested interfaces",
+        required    => 1
+    );
+
+    # Define SNMP Options
+    $np->add_arg(
+        spec        => 'community|C=s',
+        help        => "The SNMP readonly community string",
+        default     => 'public'
+    );
+
+    $np->add_arg(
+        spec        => 'username=s',
+        help        => "The username, needed for SNMP version 3",
+        required    => 0
+    );
+
+    $np->add_arg(
+        spec        => 'authpassword=s',
+        help        => "The authentication password, needed for SNMP version 3",
+        required    => 0
+    );
+
+    $np->add_arg(
+        spec        => 'authprotocol=s',
+        help        => "",
+        required    => 0
+    );
+
+    $np->add_arg(
+        spec        => 'privpass=s',
+        help        => "",
+        required    => 0
+    );
+
+    $np->add_arg(
+        spec        => 'privproto=s',
+        help        => "",
+        required    => 0
+    );
+
+    $np->add_arg(
+        spec        => 'snmpversion=i',
+        help        => "Specify the SNMP Protocoll version (one of 1, 2, 3, default is 2)",
+        default     => 2
+    );
+
+    $np->add_arg(
+        spec        => 'port=i',
+        help        => "The service port for SNMP (default is 161)",
+        default     => 161
+    );
+
+    $np->add_arg(
+        spec        => 'directory|d=s',
+        help        => "name of the directory where to stor the gap file (default /tmp)",
+        default     => "/tmp",
+    );
+
+    $np->add_arg(
+        spec        => 'gapfile|g=s',
+        help        => "name of the gap file (default check_snmp_interface___IF__.gap)",
+        default     => "check_snmp_interface___IF__.gap",
+    );
+
+    # Define interface request arguments
+    $np->add_arg(
+        spec        => 'name|i=s',
+        help        => "View this help message",
+        required    => 0
+    );
+
+    $np->add_arg(
+        spec        => 'viewflags|F',
+        help        => "View flags in statusline",
+    );
+
+    $np->add_arg(
+        spec        => 'adminstat|A',
+        help        => "Observe the administration status of the interface",
+    );
+
+    $np->add_arg(
+        spec        => 'operstat|O',
+        help        => "Observe the operation status of the interface",
+    );
+
+    $np->add_arg(
+        spec        => 'promiscuous|P',
+        help        => "Observe the promiscuous mode status of the interface",
+    );
+
+    $np->add_arg(
+        spec        => 'regex|r',
+        help        => "Do use regex to match name",
+    );
+
+    $np->add_arg(
+        spec        => 'field|f=s',
+        help        => "One of ifName, ifDescr, or ifAlias",
+        default     => 'ifDescr'
+    );
+
+    $np->add_arg(
+        spec        => 'label|l=s',
+        help        => "Which of the defined fields in the show argument shall be shown in the status line",
+        default     => 'ifoutoctets,ifinoctets'
+    );
+
+    $np->add_arg(
+        spec        => 'alias|a=s',
+        help        => "replace the label with an alias",
+        default     => 'Outbound,Inbound'
+    );
+
+    $np->add_arg(
+        spec        => 'warning|w=s',
+        help        => "List of thresholds for warnings, has to be in order of show arguments",
+        default     => 'none,none'
+    );
+
+    $np->add_arg(
+        spec        => 'critical|c=s',
+        help        => "List of thresholds for criticals, has to be in order of show arguments",
+        default     => 'none,none'
+    );
+
+    $np->add_arg(
+        spec        => 'show|s=s',
+        help        => "Select which fields shall be shown and observerd (ifoutoctets,ifinoctets,ifoutdiscards,ifindiscards,ifouterrors,ifinerrors)",
+        default     => 'ifoutoctets,ifinoctets'
+    );
+
+    $np->add_arg(
+        spec        => 'unit|u=s',
+        help        => "use one of bps, Bps, kbps, kBps, Mbps, MBps, Gbps, GBps or % as unit",
+        default     => 'Bps'
+    );
+
+    # read the cli options
+    $np->getopts;
+
+    $gap->{ 'ts_new' } = time();
+
+    # create a SNMP connection to the node
+    $snmp = createSnmpSession( $np );
+
+    # collect the interface informations and store them in a hash
+    $ifobject = getIfObject( $np, $snmp );
+
+    foreach my $if ( sort @{ $ifobject->getNames() } )
+    {
+        # get data from last check
+        my $file_exist = $ifobject->readData( $np, $if, $gap );
+
+        # store data from this check
+        $ifobject->writeData( $np, $if, $gap );
+
+        if ( $file_exist )
+        {
+            # calculte the traffic between this and the last check
+            $ifobject->calcDiff( $np, $if, $gap );
+        }
+        my ( $r, $s ) = checkThresholds( $np, $ifobject->{ interfaces }->{ $if } );
+        $ret = $r if ( $ret < $r );
+        $string .= $s;
+
+        $ifobject->{ interfaces }->{ $if }->printAll( $np->opts->unit ) if ( $np->opts->verbose );
+    }
+
+    # close the SNMP connection
+    closeSnmpSession( $snmp );
+
+    # generate output
+    $np->nagios_exit( $ret, $string );
+}
