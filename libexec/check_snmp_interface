@@ -1345,10 +1345,10 @@ use Data::Dumper;
         {
             # calculte the traffic between this and the last check
             $ifobject->calcDiff( $np, $if, $gap );
+            my ( $r, $s ) = checkThresholds( $np, $ifobject->{ interfaces }->{ $if } );
+            $ret = $r if ( $ret < $r );
+            $string .= $s;
         }
-        my ( $r, $s ) = checkThresholds( $np, $ifobject->{ interfaces }->{ $if } );
-        $ret = $r if ( $ret < $r );
-        $string .= $s;
 
         $ifobject->{ interfaces }->{ $if }->printAll( $np->opts->unit ) if ( $np->opts->verbose );
     }
