@@ -15,4 +15,4 @@ releases:
         name: check_snmp_interface
         url: "file:///libexec/check_snmp_interface"
         description: "First release"
-        checksum:28d243689a355f7e90e95d62a360f751 
+        checksum: 28d243689a355f7e90e95d62a360f751 
