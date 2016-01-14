@@ -105,17 +105,17 @@ use Data::Dumper;
     {
         my $self = shift;
 
-        $self->setKeyByOID( 'ifindex',       '.1.3.6.1.2.1.2.2.1.1'  . "." . $self->getByKey( "ifindex" ) );
-        $self->setKeyByOID( 'ifdescr',       '.1.3.6.1.2.1.2.2.1.2'  . "." . $self->getByKey( "ifindex" ) );
-        $self->setKeyByOID( 'ifspeed',       '.1.3.6.1.2.1.2.2.1.5'  . "." . $self->getByKey( "ifindex" ), {}, ( 1 / 8 ) );
-        $self->setKeyByOID( 'ifadminstatus', '.1.3.6.1.2.1.2.2.1.7'  . "." . $self->getByKey( "ifindex" ), { 1 => 'up', 2 => 'down', 3 => 'testing' } );
-        $self->setKeyByOID( 'ifoperstatus',  '.1.3.6.1.2.1.2.2.1.8'  . "." . $self->getByKey( "ifindex" ), { 1 => 'up', 2 => 'down', 3 => 'testing', 4 => 'unknown', 5 => 'dormant', 6 => 'notpresent', 7 => 'lowerlayerdown' } );
-        $self->setKeyByOID( 'ifinoctets',    '.1.3.6.1.2.1.2.2.1.10' . "." . $self->getByKey( "ifindex" ) );
-        $self->setKeyByOID( 'ifindiscards',  '.1.3.6.1.2.1.2.2.1.13' . "." . $self->getByKey( "ifindex" ) );
-        $self->setKeyByOID( 'ifinerrors',    '.1.3.6.1.2.1.2.2.1.14' . "." . $self->getByKey( "ifindex" ) );
-        $self->setKeyByOID( 'ifoutoctets',   '.1.3.6.1.2.1.2.2.1.16' . "." . $self->getByKey( "ifindex" ) );
-        $self->setKeyByOID( 'ifoutdiscards', '.1.3.6.1.2.1.2.2.1.19' . "." . $self->getByKey( "ifindex" ) );
-        $self->setKeyByOID( 'ifouterrors',   '.1.3.6.1.2.1.2.2.1.20' . "." . $self->getByKey( "ifindex" ) );
+        $self->setKeyByOID( 'ifindex',       '.1.3.6.1.2.1.2.2.1.1'  . "." . $self->getByKey( "ifindex" ), "numeric" );
+        $self->setKeyByOID( 'ifdescr',       '.1.3.6.1.2.1.2.2.1.2'  . "." . $self->getByKey( "ifindex" ), "string" );
+        $self->setKeyByOID( 'ifspeed',       '.1.3.6.1.2.1.2.2.1.5'  . "." . $self->getByKey( "ifindex" ), "numeric", {}, ( 1 / 8 ) );
+        $self->setKeyByOID( 'ifadminstatus', '.1.3.6.1.2.1.2.2.1.7'  . "." . $self->getByKey( "ifindex" ), "numeric", { 1 => 'up', 2 => 'down', 3 => 'testing' } );
+        $self->setKeyByOID( 'ifoperstatus',  '.1.3.6.1.2.1.2.2.1.8'  . "." . $self->getByKey( "ifindex" ), "numeric", { 1 => 'up', 2 => 'down', 3 => 'testing', 4 => 'unknown', 5 => 'dormant', 6 => 'notpresent', 7 => 'lowerlayerdown' } );
+        $self->setKeyByOID( 'ifinoctets',    '.1.3.6.1.2.1.2.2.1.10' . "." . $self->getByKey( "ifindex" ), "numeric" );
+        $self->setKeyByOID( 'ifindiscards',  '.1.3.6.1.2.1.2.2.1.13' . "." . $self->getByKey( "ifindex" ), "numeric" );
+        $self->setKeyByOID( 'ifinerrors',    '.1.3.6.1.2.1.2.2.1.14' . "." . $self->getByKey( "ifindex" ), "numeric" );
+        $self->setKeyByOID( 'ifoutoctets',   '.1.3.6.1.2.1.2.2.1.16' . "." . $self->getByKey( "ifindex" ), "numeric" );
+        $self->setKeyByOID( 'ifoutdiscards', '.1.3.6.1.2.1.2.2.1.19' . "." . $self->getByKey( "ifindex" ), "numeric" );
+        $self->setKeyByOID( 'ifouterrors',   '.1.3.6.1.2.1.2.2.1.20' . "." . $self->getByKey( "ifindex" ), "numeric" );
 
         return $self;
     }
@@ -157,6 +157,24 @@ use Data::Dumper;
     }
 
     #-------------------------------------------------------------------------------
+    #   Methode         : _isNumber
+    #-------------------------------------------------------------------------------
+    #   Description     : Check if a value is either a number or string and return
+    #                     the result.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $value        The value that has to be checked
+    #   Output          : 0/1           Return 1 if value is a number else 0
+    #-------------------------------------------------------------------------------
+    sub _isNumber
+    {
+        my $self = shift;
+        my $value = shift;
+
+        ( $value =~ /^-?\d+\.?\d*$/ ) ? return 1 : return 0;
+    }
+
+    #-------------------------------------------------------------------------------
     #   Methode         : setKeyByOID
     #-------------------------------------------------------------------------------
     #   Description     : Set value for key by OID.
@@ -171,20 +189,35 @@ use Data::Dumper;
         my $self = shift;
         my $key = shift;
         my $oid = shift;
+        my $type = shift;
         my $options = shift;
         my $factor = shift;
+        my $value;
 
-        if ( $factor )
+        $value = $self->{ session }->get_request( $oid )->{ $oid };
+
+        if ( $type eq "numeric" and $self->_isNumber( $value ) )
         {
-            $self->{ lc( $key ) } = ( $self->{ session }->get_request( $oid ) )->{ $oid } * $factor;
+            if ( $factor )
+            {
+                $self->{ lc( $key ) } = $value * $factor;
+            }
+            elsif ( $options )
+            {
+                $self->{ lc( $key ) } = $options->{ $value };
+            }
+            else
+            {
+                $self->{ lc( $key ) } = $value;
+            }
         }
-        elsif ( $options )
+        elsif ( $type eq "string" and $self->_isNumber( $value ) )
         {
-            $self->{ lc( $key ) } = $options->{ ( $self->{ session }->get_request( $oid ) )->{ $oid } };
+            $self->{ lc( $key ) } = $value;
         }
         else
         {
-            $self->{ lc( $key ) } = ( $self->{ session }->get_request( $oid ) )->{ $oid };
+            $self->{ lc( $key ) } = 0;
         }
     }
 
@@ -223,7 +256,7 @@ use Data::Dumper;
         {
             return "pkts";
         }
-        elsif ( $key =~ /octets/ )
+        elsif ( $key =~ /octets/ or $key =~ /speed/ )
         {
             return $self->getByKey( 'unit' );
         }
@@ -407,7 +440,7 @@ use Data::Dumper;
 
         print "Values for interface " . $self->getByKey( "ifdescr" ) . "\n";
         print "----------------------------------------------------------------------------------------------\n";
-        print "\tTime between measure     = " . $self->getByKey( "timegap" ) . "\n";
+        print "\tTime between measure     = " . ( ( $self->getByKey( "timegap" ) ) ? $self->getByKey( "timegap" ) : '-' ) . "\n";
         print "\tInterface index          = " . $self->getByKey( "ifindex" ) . "\n";
         print "\tInterface description    = " . $self->getByKey( "ifdescr" ) . "\n";
         print "\tBandwidth                = " . $self->getByKey( "ifspeed" ) . "\n";
@@ -476,12 +509,12 @@ use Data::Dumper;
     {
         my $self = shift;
 
-        $self->setKeyByOID( 'ifname',            '.1.3.6.1.2.1.31.1.1.1.1'  . "." . $self->getByKey( "ifindex" ) );
-        $self->setKeyByOID( 'ifinoctets',        '.1.3.6.1.2.1.31.1.1.1.6'  . "." . $self->getByKey( "ifindex" ) );
-        $self->setKeyByOID( 'ifoutoctets',       '.1.3.6.1.2.1.31.1.1.1.10' . "." . $self->getByKey( "ifindex" ) );
-        $self->setKeyByOID( 'ifspeed',           '.1.3.6.1.2.1.31.1.1.1.15' . "." . $self->getByKey( "ifindex" ), {}, ( 10 ** 6 / 8 ) );
-        $self->setKeyByOID( 'ifpromiscuousmode', '.1.3.6.1.2.1.31.1.1.1.16' . "." . $self->getByKey( "ifindex" ), { 1 => 'on', 2 => 'off' } );
-        $self->setKeyByOID( 'ifalias',           '.1.3.6.1.2.1.31.1.1.1.18' . "." . $self->getByKey( "ifindex" ) );
+        $self->setKeyByOID( 'ifname',            '.1.3.6.1.2.1.31.1.1.1.1'  . "." . $self->getByKey( "ifindex" ), "string" );
+        $self->setKeyByOID( 'ifinoctets',        '.1.3.6.1.2.1.31.1.1.1.6'  . "." . $self->getByKey( "ifindex" ), "numeric" );
+        $self->setKeyByOID( 'ifoutoctets',       '.1.3.6.1.2.1.31.1.1.1.10' . "." . $self->getByKey( "ifindex" ), "numeric" );
+        $self->setKeyByOID( 'ifspeed',           '.1.3.6.1.2.1.31.1.1.1.15' . "." . $self->getByKey( "ifindex" ), "numeric", {}, ( 10 ** 6 / 8 ) );
+        $self->setKeyByOID( 'ifpromiscuousmode', '.1.3.6.1.2.1.31.1.1.1.16' . "." . $self->getByKey( "ifindex" ), "numeric", { 1 => 'on', 2 => 'off' } );
+        $self->setKeyByOID( 'ifalias',           '.1.3.6.1.2.1.31.1.1.1.18' . "." . $self->getByKey( "ifindex" ), "string" );
 
         return $self;
     }
@@ -531,7 +564,7 @@ use Data::Dumper;
 
         print "Values for interface " . $self->getByKey( "ifdescr" ) . "\n";
         print "----------------------------------------------------------------------------------------------\n";
-        print "\tTime between measure     = " . $self->getByKey( "timegap" ) . "\n";
+        print "\tTime between measure     = " . ( ( $self->getByKey( "timegap" ) ) ? $self->getByKey( "timegap" ) : '-' ) . "\n";
         print "\tInterface index          = " . $self->getByKey( "ifindex" ) . "\n";
         print "\tInterface name           = " . $self->getByKey( "ifname" ) . "\n";
         print "\tInterface description    = " . $self->getByKey( "ifdescr" ) . "\n";
@@ -705,9 +738,11 @@ use Data::Dumper;
         my $if = shift;
         my $gap = shift;
         my $file = "";
+        my $iffn = $if;
 
         $file = $np->opts->directory . "/" . $np->opts->hostname . "_" . $np->opts->gapfile;
-        $file =~ s/__IF__/$if/g;
+        $iffn =~ s/\//_/g;
+        $file =~ s/__IF__/$iffn/g;
 
         open( FILE, ">", $file ) or $np->nagios_die( "cant open file $file for writing" );
         print FILE "gap = " . $gap->{ 'ts_new' } . "\n";
@@ -734,9 +769,11 @@ use Data::Dumper;
         my $if = shift;
         my $gap = shift;
         my $file = "";
+        my $iffn = $if;
 
         $file = $np->opts->directory . "/" . $np->opts->hostname . "_" . $np->opts->gapfile;
-        $file =~ s/__IF__/$if/g;
+        $iffn =~ s/\//_/g;
+        $file =~ s/__IF__/$iffn/g;
 
         if ( -e $file )
         {
@@ -1087,11 +1124,12 @@ use Data::Dumper;
                 $ret = $r if ( $ret < $r );
             }
             $np->add_perfdata(
-                label => $interface . "_" . $fields[ $i ],
+                label => "'" . $interface . "_" . $fields[ $i ] . "'",
                 value => $if->toUnit( $fields[ $i ], $if->getUnitByKey( $fields[ $i ] ) ),
                 uom => $if->getUnitByKey( $fields[ $i ] ),
                 warning => ( $warning[ $i ] ne "none" ) ? $warning[ $i ] : "",
-                critical => ( $critical[ $i ] ne "none" ) ? $critical[ $i ] : ""
+                critical => ( $critical[ $i ] ne "none" ) ? $critical[ $i ] : "",
+                max => $if->toUnit( 'ifspeed', $if->getUnitByKey( 'ifspeed' ) )
             );
         }
 
@@ -1208,19 +1246,19 @@ use Data::Dumper;
 
     $np->add_arg(
         spec        => 'authprotocol=s',
-        help        => "",
+        help        => "The privacy type, needed for SNMP version 3",
         required    => 0
     );
 
     $np->add_arg(
         spec        => 'privpass=s',
-        help        => "",
+        help        => "The private key, optional for SNMP version 3",
         required    => 0
     );
 
     $np->add_arg(
         spec        => 'privproto=s',
-        help        => "",
+        help        => "The privacy type, optional for SNMP version 3",
         required    => 0
     );
 
@@ -1237,21 +1275,21 @@ use Data::Dumper;
     );
 
     $np->add_arg(
-        spec        => 'directory|d=s',
-        help        => "name of the directory where to stor the gap file (default /tmp)",
-        default     => "/tmp",
+        spec =>         'directory|d=s',
+        help =>         "The name of the directory where to stor the gap file (default /tmp)",
+        default =>      "/tmp",
     );
 
     $np->add_arg(
-        spec        => 'gapfile|g=s',
-        help        => "name of the gap file (default check_snmp_interface___IF__.gap)",
-        default     => "check_snmp_interface___IF__.gap",
+        spec =>         'gapfile|g=s',
+        help =>         "The name of the gap file (default check_snmp_interface___IF__.gap)",
+        default =>      "check_snmp_interface___IF__.gap",
     );
 
     # Define interface request arguments
     $np->add_arg(
         spec        => 'name|i=s',
-        help        => "View this help message",
+        help        => "The name of the to be observed interface",
         required    => 0
     );
 
