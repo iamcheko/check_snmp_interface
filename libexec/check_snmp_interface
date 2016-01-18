@@ -211,7 +211,7 @@ use Data::Dumper;
                 $self->{ lc( $key ) } = $value;
             }
         }
-        elsif ( $type eq "string" and $self->_isNumber( $value ) )
+        elsif ( $type eq "string" and not $self->_isNumber( $value ) )
         {
             $self->{ lc( $key ) } = $value;
         }
@@ -382,15 +382,15 @@ use Data::Dumper;
         }
         elsif ( $unit eq "kbps" )
         {
-            return $self->getByKey( $key ) * 8 / 1024;
+            return $self->getByKey( $key ) * 8 / 1000;
         }
         elsif ( $unit eq "Mbps" )
         {
-            return $self->getByKey( $key ) * 8 / 1024**2;
+            return $self->getByKey( $key ) * 8 / 1000**2;
         }
         elsif ( $unit eq "Gbps" )
         {
-            return $self->getByKey( $key ) * 8 / 1024**3;
+            return $self->getByKey( $key ) * 8 / 1000**3;
         }
         elsif ( $unit eq "Bps" )
         {
@@ -398,15 +398,15 @@ use Data::Dumper;
         }
         elsif ( $unit eq "kBps" )
         {
-            return $self->getByKey( $key ) / 1024;
+            return $self->getByKey( $key ) / 1000;
         }
         elsif ( $unit eq "MBps" )
         {
-            return $self->getByKey( $key ) / 1024**2;
+            return $self->getByKey( $key ) / 1000**2;
         }
         elsif ( $unit eq "GBps" )
         {
-            return $self->getByKey( $key ) / 1024**3;
+            return $self->getByKey( $key ) / 1000**3;
         }
         elsif ( $unit eq "%" )
         {
@@ -1221,75 +1221,75 @@ use Data::Dumper;
 
     $np->add_arg(
         spec        => 'hostname|H=s',
-        help        => "The host name of the requested interfaces",
+        help        => "The host name of the requested network interfaces.",
         required    => 1
     );
 
     # Define SNMP Options
     $np->add_arg(
         spec        => 'community|C=s',
-        help        => "The SNMP readonly community string",
+        help        => "The SNMP readonly community string.",
         default     => 'public'
     );
 
     $np->add_arg(
         spec        => 'username=s',
-        help        => "The username, needed for SNMP version 3",
+        help        => "The username, needed for SNMP version 3.",
         required    => 0
     );
 
     $np->add_arg(
         spec        => 'authpassword=s',
-        help        => "The authentication password, needed for SNMP version 3",
+        help        => "The authentication password, needed for SNMP version 3.",
         required    => 0
     );
 
     $np->add_arg(
         spec        => 'authprotocol=s',
-        help        => "The privacy type, needed for SNMP version 3",
+        help        => "The privacy type, needed for SNMP version 3.",
         required    => 0
     );
 
     $np->add_arg(
         spec        => 'privpass=s',
-        help        => "The private key, optional for SNMP version 3",
+        help        => "The private key, optional for SNMP version 3.",
         required    => 0
     );
 
     $np->add_arg(
         spec        => 'privproto=s',
-        help        => "The privacy type, optional for SNMP version 3",
+        help        => "The privacy type, optional for SNMP version 3.",
         required    => 0
     );
 
     $np->add_arg(
         spec        => 'snmpversion=i',
-        help        => "Specify the SNMP Protocoll version (one of 1, 2, 3, default is 2)",
+        help        => "Specify the SNMP Protocoll version (one of 1, 2 or 3, default is 2).",
         default     => 2
     );
 
     $np->add_arg(
         spec        => 'port=i',
-        help        => "The service port for SNMP (default is 161)",
+        help        => "The service port for SNMP (default is 161).",
         default     => 161
     );
 
     $np->add_arg(
         spec =>         'directory|d=s',
-        help =>         "The name of the directory where to stor the gap file (default /tmp)",
+        help =>         "The name of the directory where to stor the gap file (default /tmp)\n",
         default =>      "/tmp",
     );
 
     $np->add_arg(
         spec =>         'gapfile|g=s',
-        help =>         "The name of the gap file (default check_snmp_interface___IF__.gap)",
+        help =>         "The name of the gap file (default check_snmp_interface___IF__.gap)\n",
         default =>      "check_snmp_interface___IF__.gap",
     );
 
     # Define interface request arguments
     $np->add_arg(
         spec        => 'name|i=s',
-        help        => "The name of the to be observed interface",
+        help        => "The name of the network interface that needs to be observerd.",
         required    => 0
     );
 
