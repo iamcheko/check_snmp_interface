@@ -47,7 +47,7 @@ $def[2] = "";
 #-------------------------------------------------------------------------------
 #   Label and Titel settings
 #-------------------------------------------------------------------------------
-$ifname = str_replace("Test_Network_Traffic_","",$servicedesc);
+$ifname = str_replace("Network_Traffic_","",$servicedesc);
 $ifname = str_replace("_","/",$ifname);
 $ds_name[1] = "Interface Utilization for $hostname";
 $opt[1] .= "--vertical-label \"$UNIT[1]\" ";
