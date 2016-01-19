@@ -1,6 +1,8 @@
 # check_snmp_interface
 This script is intended to be an icinga, nagios or naemon plugin which measures the network traffic of one or more network interfaces via SNMP.
 
+The php script is needed by pnp4nagios and is made for one network interface.
+
 # Usage
 First of all, don't run this script as root. It will create a temporary file called /tmp/<hostname>_check_snmp_interface___IF__.gap, with the actual measures. Where _IF_ gets replaced by the network interface name. The script comes with a help option.
 ```
@@ -80,3 +82,6 @@ Measure the network traffic of eth0 on localhost.
 
 Network Interface OK - eth0 Outbound=42343.97bps  Inbound=5952.30bps  | 'eth0_ifoutoctets'=42343.96812749bps;;;;1000000000 'eth0_ifinoctets'=5952.29747675963bps;;;;1000000000 'eth0_ifoutdiscards'=0pkts;; 'eth0_ifindiscards'=0pkts;; 'eth0_ifouterrors'=0pkts;; 'eth0_ifinerrors'=0pkts;;
 ```
+
+The resulting graph would look like this:
+![check_snmp_interface](https://cloud.githubusercontent.com/assets/9155784/12415535/83af5378-be9c-11e5-8637-75aa1372f123.png)
