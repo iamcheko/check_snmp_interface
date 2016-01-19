@@ -817,15 +817,8 @@ use Data::Dumper;
         my $if = shift;
         my $gap = shift;
         my $refif;
-        my $file = "";
-        my $iffn = $if;
 
         $refif = $self->getRefByName( $if );
-        $file = $np->opts->directory . "/" . $np->opts->hostname . "_" . $np->opts->gapfile;
-        $iffn =~ s/\//_/g;
-        $file =~ s/__IF__/$iffn/g;
-        open( FILE, ">>", $file ) or $np->nagios_die( "cant open file " . $file . " for writing" );
-
         foreach ( keys %{ $refif } )
         {
             my $key;
@@ -846,8 +839,6 @@ use Data::Dumper;
                 delete $refif->{ $_ };
             }
         }
-        print FILE "\n";
-        close( FILE );
     }
 
     #-------------------------------------------------------------------------------
