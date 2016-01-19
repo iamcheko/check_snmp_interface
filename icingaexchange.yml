@@ -9,13 +9,13 @@ license: gplv2
 releases: 
   - 
     name: 0.0.2
-    description: "0.0.1 Release"
+    description: "0.0.2 Release"
     files: 
       - 
         name: check_snmp_interface
         url: "file:///libexec/check_snmp_interface"
         description: "Check script for icinga, naemon and nagios to measure network traffic and status flags"
-        checksum: 230bdd75768087abf451ee3d07823e7d
+        checksum: ab1341f637aa43c6c92e1a3d23845398
       -
         name: check_snmp_interface.php
         url: "file:///share/template/check_snmp_interface.php"
