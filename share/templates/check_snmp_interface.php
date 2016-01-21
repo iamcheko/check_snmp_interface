@@ -47,16 +47,17 @@ $def[2] = "";
 #-------------------------------------------------------------------------------
 #   Label and Titel settings
 #-------------------------------------------------------------------------------
-$ifname = str_replace("Network_Traffic_","",$servicedesc);
+$ifname = str_replace("Test_Network_Traffic_","",$servicedesc);
 $ifname = str_replace("_","/",$ifname);
 $ds_name[1] = "Interface Utilization for $hostname";
-$opt[1] .= "--vertical-label \"$UNIT[1]\" ";
-$opt[1] .= "--slope-mode ";
+$opt[1] .= "--vertical-label \"bps\" ";
+$opt[1] .= "--slope-mode --lower=0 ";
 $opt[1] .= "--title \"Interface Utilization in bits per second for $ifname\" ";
 $opt[1] .= "--watermark=\"Template: " . $TEMPLATE[1] . " by Marek Zavesicky\" ";
 
 $ds_name[2] = "Interface Errors and Discards for $hostname";
 $opt[2] .= "--vertical-label \"$UNIT[3]\" ";
+$opt[2] .= "--slope-mode --lower=0 ";
 $opt[2] .= "--title \"Interface Utilization in packets per second for $ifname\" ";
 $opt[2] .= "--watermark=\"Template: " . $TEMPLATE[1] . " by Marek Zavesicky\" ";
 
@@ -68,9 +69,11 @@ foreach ( $DS as $I )
     if (preg_match('/.*octets/', $NAME[$I]) ? true : false)
     {
         $def[1] .= rrd::def( "var$I", $rrdfile, $DS[$I], 'AVERAGE' );
-        $def[1] .= rrd::area( "var$I", $A_COLORS[$I], rrd::cut( $LABELS[$I], $slen ) );
-        $def[1] .= rrd::line1( "var$I", $L_COLORS[$I] );
-        $def[1] .= rrd::gprint( "var$I", array("AVERAGE", "MAX", "LAST"), "%8.2lf%s");
+        $def[1] .= rrd::cdef( "cvar$I", "var$I,8,*" );
+        $def[1] .= rrd::area( "cvar$I", $A_COLORS[$I], rrd::cut( $LABELS[$I], $slen ) );
+        $def[1] .= rrd::line1( "cvar$I", $L_COLORS[$I] );
+        $def[1] .= rrd::gprint( "cvar$I", array("AVERAGE", "MAX", "LAST"), "%8.2lf%s");
+
     }
     else
     {
