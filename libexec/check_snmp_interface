@@ -979,7 +979,7 @@ use Data::Dumper;
     #---------------------------------------------------------------------------
     my $NAME = "check_snmp_interface";
     my $SHORTNAME = "Network Interface";
-    my $VERSION = "0.0.3";
+    my $VERSION = "0.0.4";
     my $LICENSE = "GNU v2 or later, see <http://www.fsf.org/copyleft/gpl.txt>";
 
     #---------------------------------------------------------------------------
@@ -1100,31 +1100,34 @@ use Data::Dumper;
 
         return ( 1, $interface . " parameters do not align. " ) if ( scalar @fields ne scalar @warning or scalar @fields ne scalar @critical );
 
+        $if->setUnit( $np->opts->unit );
         for ( my $i = 0; $i < scalar @fields; $i++ )
         {
-            $if->setUnit( $np->opts->unit );
+            my $unit = $if->getUnitByKey( $fields[ $i ] );
 
             if ( $warning[ $i ] ne "none" and $critical[ $i ] ne "none" )
             {
                 my $r =  $np->check_threshold(
-                    check => $if->toUnit( $fields[ $i ], $if->getUnitByKey( $fields[ $i ] ) ),
-                    warning => $warning[ $i ],
-                    critical => $critical[ $i ]
+                    check => $if->getByKey( $fields[ $i ] ),
+                    warning => ( $fields[ $i ] =~ /octets/ ) ? unitTo( $warning[ $i ], $unit, $if->getByKey( 'ifspeed' ) ) : $warning[ $i ],
+                    critical => ( $fields[ $i ] =~ /octets/ ) ? unitTo( $critical[ $i ], $unit, $if->getByKey( 'ifspeed' ) ) : $critical[ $i ]
                 );
+                print "Field: " . $fields[ $i ] . " result in " . $r . "\n" if ( $np->opts->verbose );
                 $ret = $r if ( $ret < $r );
             }
             $np->add_perfdata(
                 label => "'" . $interface . "_" . $fields[ $i ] . "'",
-                value => $if->toUnit( $fields[ $i ], $if->getUnitByKey( $fields[ $i ] ) ),
-                uom => $if->getUnitByKey( $fields[ $i ] ),
-                warning => ( $warning[ $i ] ne "none" ) ? $warning[ $i ] : "",
-                critical => ( $critical[ $i ] ne "none" ) ? $critical[ $i ] : "",
-                max => ( $fields[ $i ] =~ /octets/ ) ? $if->toUnit( 'ifspeed', $if->getUnitByKey( 'ifspeed' ) ) : ""
+                value => unitTo( $if->getByKey( $fields[ $i ] ), ( $fields[ $i ] =~ /octets/ ) ? "Bps" : "Pkts", $if->getByKey( 'ifspeed' ) ),
+                uom => ( $fields[ $i ] =~ /octets/ ) ? "Bps" : "Pkts",
+                warning => ( $warning[ $i ] ne "none" ) ? unitTo( $warning[ $i ], $unit, $if->getByKey( 'ifspeed' ) ) : "",
+                critical => ( $critical[ $i ] ne "none" ) ? unitTo( $critical[ $i ], $unit, $if->getByKey( 'ifspeed' ) ) : "",
+                min => ( $fields[ $i ] =~ /octets/ ) ? 0 : "",
+                max => ( $fields[ $i ] =~ /octets/ ) ? $if->getByKey( 'ifspeed' ) : ""
             );
         }
 
         # Generate the status string
-        $string .= " " . checkFlags( $np, $if ) if ( $np->opts->viewflags );
+        $string .= checkFlags( $np, $if );
         for ( my $i = 0; $i < scalar @label; $i++ )
         {
             my $a = $alias[ $i ] ? $alias[ $i ] : $label[ $i ];
@@ -1151,15 +1154,16 @@ use Data::Dumper;
         my $letter = shift;
         my $flag = shift;
         my $expected = shift;
-        my $observe = shift;
 
-        if ( $flag ne $expected )
+        return "" if ( $expected eq "none" );
+
+        if ( lc( $flag ) ne lc( $expected ) )
         {
-            return $observe ? '<span class="serviceCRITICAL">' . uc( $letter ) . '</span>' : '<span class="serviceCRITICALNO">' . lc( $letter ) . '</span>';
+            return ' ' . $letter . '=<span class="serviceCRITICAL">' . $flag . '</span>';
         }
         else
         {
-            return $observe ? '<span class="serviceOK">' . uc( $letter ) . '</span>' : '<span class="serviceOKNO">' . lc( $letter ) . '</span>';
+            return ' ' . $letter . '=<span class="serviceOK">' . $flag . '</span>';
         }
     }
 
@@ -1179,13 +1183,73 @@ use Data::Dumper;
         my $if = shift;
         my $string = "";
 
-        $string .= checkFlag( 'A', $if->getByKey( 'ifadminstatus' ), "up", $np->opts->adminstat );
-        $string .= checkFlag( 'O', $if->getByKey( 'ifoperstatus' ), "up", $np->opts->operstat );
+        $string .= checkFlag( 'A', $if->getByKey( 'ifadminstatus' ), $np->opts->adminstat );
+        $string .= checkFlag( 'O', $if->getByKey( 'ifoperstatus' ), $np->opts->operstat );
         if ( $np->opts->snmpversion > 1 )
         {
-            $string .= checkFlag( 'P', $if->getByKey( 'ifpromiscuousmode' ), "off", $np->opts->promiscuous );
+            $string .= checkFlag( 'P', $if->getByKey( 'ifpromiscuousmode' ), $np->opts->promiscuous );
         }
         return $string
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : unitTo
+    #-------------------------------------------------------------------------------
+    #   Description     : Calculate from unit of choice to octets.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $key          The key of the value which has to be
+    #                                   converted
+    #                     $unit         The unit to which the value has to be
+    #                                   converted
+    #   Output          : $value        The converted value
+    #-------------------------------------------------------------------------------
+    sub unitTo
+    {
+        my $value = shift;
+        my $unit = shift;
+        my $speed = shift;
+
+        if ( $unit eq "bps" )
+        {
+            return sprintf( "%.2f", $value / 8 );
+        }
+        elsif ( $unit eq "kbps" )
+        {
+            return sprintf( "%.2f", $value * 1000 / 8 );
+        }
+        elsif ( $unit eq "Mbps" )
+        {
+            return sprintf( "%.2f", $value * 1000**2 / 8 );
+        }
+        elsif ( $unit eq "Gbps" )
+        {
+            return sprintf( "%.2f", $value * 1000**3 / 8 );
+        }
+        elsif ( $unit eq "Bps" )
+        {
+            return sprintf( "%.2f", $value );
+        }
+        elsif ( $unit eq "kBps" )
+        {
+            return sprintf( "%.2f", $value * 1000 );
+        }
+        elsif ( $unit eq "MBps" )
+        {
+            return sprintf( "%.2f", $value * 1000**2 );
+        }
+        elsif ( $unit eq "GBps" )
+        {
+            return sprintf( "%.2f", $value * 1000**3 );
+        }
+        elsif ( $unit eq "%" )
+        {
+            return sprintf( "%.2f", $speed * $value / 100 );
+        }
+        else
+        {
+            return sprintf( "%.2f", $value );
+        }
     }
 
     #---------------------------------------------------------------------------
@@ -1282,23 +1346,21 @@ use Data::Dumper;
     );
 
     $np->add_arg(
-        spec        => 'viewflags|F',
-        help        => "View flags in statusline",
+        spec        => 'adminstat|A=s',
+        help        => "Observe the administration status flag of the interface (Available flags are up, down, testing and none, default is none)",
+        default     => 'none'
     );
 
     $np->add_arg(
-        spec        => 'adminstat|A',
-        help        => "Observe the administration status of the interface",
+        spec        => 'operstat|O=s',
+        help        => "Observe the operation status flag of the interface (Available flags are up, down, testing, unknown, dormant, notpresent, lowerlayerdown and none, default is none)",
+        default     => 'none'
     );
 
     $np->add_arg(
-        spec        => 'operstat|O',
-        help        => "Observe the operation status of the interface",
-    );
-
-    $np->add_arg(
-        spec        => 'promiscuous|P',
-        help        => "Observe the promiscuous mode status of the interface",
+        spec        => 'promiscuous|P=s',
+        help        => "Observe the promiscuous mode status flag of the interface (Available flags are on, off and none, default is none)",
+        default     => 'none'
     );
 
     $np->add_arg(
