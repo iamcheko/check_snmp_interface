@@ -979,7 +979,7 @@ use Data::Dumper;
     #---------------------------------------------------------------------------
     my $NAME = "check_snmp_interface";
     my $SHORTNAME = "Network Interface";
-    my $VERSION = "0.0.2";
+    my $VERSION = "0.0.5";
     my $LICENSE = "GNU v2 or later, see <http://www.fsf.org/copyleft/gpl.txt>";
 
     #---------------------------------------------------------------------------
@@ -987,8 +987,8 @@ use Data::Dumper;
     #---------------------------------------------------------------------------
     #   Function        : This function tries to create the SNMP session.
     #
-    #   Input           : np            Nagios Plugin reference
-    #                     session       SNMP session reference
+    #   Input           : $np           Nagios Plugin reference
+    #                     $session      SNMP session reference
     #   Output          : -             none
     #---------------------------------------------------------------------------
     sub createSnmpSession
@@ -1036,7 +1036,7 @@ use Data::Dumper;
     #---------------------------------------------------------------------------
     #   Function        : This function tries to close the SNMP session.
     #
-    #   Input           : session       SNMP session reference
+    #   Input           : $session      SNMP session reference
     #   Output          : -             none
     #---------------------------------------------------------------------------
     sub closeSnmpSession
@@ -1052,11 +1052,11 @@ use Data::Dumper;
     #   Function        : This function tries to catch the index of the needed
     #                     network interface.
     #
-    #   Input           : np            Nagios Plugin reference
-    #                     snmp          SNMP session reference
-    #                     ifobject      the hash into wich we store the data
-    #                     scheme        the hash with all oids we need
-    #                     order         the array with the needed order
+    #   Input           : $np           Nagios Plugin reference
+    #                     $snmp         SNMP session reference
+    #                     $ifobject     the hash into wich we store the data
+    #                     $scheme       the hash with all oids we need
+    #                     $order        the array with the needed order
     #   Output          : -             none
     #---------------------------------------------------------------------------
     sub getIfObject
@@ -1072,6 +1072,66 @@ use Data::Dumper;
             $np->opts->regex,
             $np->opts->snmpversion
         );
+    }
+
+    #---------------------------------------------------------------------------
+    #                     Sub createQueryHash
+    #---------------------------------------------------------------------------
+    #   Function        : This function has the task to make the function
+    #                     checkThresholds a bit more readeble. It creates two
+    #                     hash references.
+    #
+    #   Input           : $np           Nagios Plugin reference
+    #                     $if           A reference to the interface
+    #                     $thdoptions   A hashreference for the threshold
+    #                                   options
+    #                     $prfdtptions  A hashreference for the perfdata options
+    #                     $key          Name of the key
+    #                     $warning      The warning threshold
+    #                     $critical     The critical threshold
+    #   Output          : -             none
+    #---------------------------------------------------------------------------
+    sub createQueryHash
+    {
+        my $np = shift;
+        my $if = shift;
+        my $thdoptions = shift;
+        my $prfdtptions = shift;
+        my $key = shift;
+        my $warning = shift;
+        my $critical = shift;
+        my $uom = "Pkts";
+        my $min = "";
+        my $max = "";
+
+        if ( $key =~ /octets/ )
+        {
+            $uom = "Bps";
+            $min = 0;
+            $max = $if->getByKey( 'ifspeed' );
+        }
+
+        if ( $warning ne "none" and $critical ne "none" )
+        {
+            $warning = unitTo( $warning, $if->getUnitByKey( $key ), $if->getByKey( 'ifspeed' ) );
+            $critical = unitTo( $critical, $if->getUnitByKey( $key ), $if->getByKey( 'ifspeed' ) );
+            $thdoptions->{ 'check' }    = $if->getByKey( $key );
+            $thdoptions->{ 'warning' }  = $warning;
+            $thdoptions->{ 'critical' } = $critical;
+        }
+        else
+        {
+            $warning = "";
+            $critical = "";
+        }
+
+        $prfdtptions->{ 'label' }       = "'" . $if->getByKey( lc( $np->opts->field ) ) . "_" . $key . "'";
+        $prfdtptions->{ 'value' }       = unitTo( $if->getByKey( $key ), $uom, $if->getByKey( 'ifspeed' ) );
+        $prfdtptions->{ 'uom' }         = $uom;
+        $prfdtptions->{ 'warning' }     = $warning;
+        $prfdtptions->{ 'critical' }    = $critical;
+        $prfdtptions->{ 'min' }         = $min;
+        $prfdtptions->{ 'max' }         = $max;
     }
 
     #-------------------------------------------------------------------------------
@@ -1104,27 +1164,17 @@ use Data::Dumper;
         $if->setUnit( $np->opts->unit );
         for ( my $i = 0; $i < scalar @fields; $i++ )
         {
-            my $unit = $if->getUnitByKey( $fields[ $i ] );
+            my $thresholdoptions = {};
+            my $perfdataoptions = {};
 
-            if ( $warning[ $i ] ne "none" and $critical[ $i ] ne "none" )
+            createQueryHash( $np, $if, $thresholdoptions, $perfdataoptions, $fields[ $i ],$warning[ $i ], $critical[ $i ] );
+
+            if ( %{ $thresholdoptions } )
             {
-                my $r =  $np->check_threshold(
-                    check => $if->getByKey( $fields[ $i ] ),
-                    warning => ( $fields[ $i ] =~ /octets/ ) ? unitTo( $warning[ $i ], $unit, $if->getByKey( 'ifspeed' ) ) : $warning[ $i ],
-                    critical => ( $fields[ $i ] =~ /octets/ ) ? unitTo( $critical[ $i ], $unit, $if->getByKey( 'ifspeed' ) ) : $critical[ $i ]
-                );
-                print "Field: " . $fields[ $i ] . " result in " . $r . "\n" if ( $np->opts->verbose );
+                my $r =  $np->check_threshold( %{ $thresholdoptions } );
                 $ret = $r if ( $ret < $r );
             }
-            $np->add_perfdata(
-                label => "'" . $interface . "_" . $fields[ $i ] . "'",
-                value => unitTo( $if->getByKey( $fields[ $i ] ), ( $fields[ $i ] =~ /octets/ ) ? "Bps" : "Pkts", $if->getByKey( 'ifspeed' ) ),
-                uom => ( $fields[ $i ] =~ /octets/ ) ? "Bps" : "Pkts",
-                warning => ( $warning[ $i ] ne "none" ) ? unitTo( $warning[ $i ], $unit, $if->getByKey( 'ifspeed' ) ) : "",
-                critical => ( $critical[ $i ] ne "none" ) ? unitTo( $critical[ $i ], $unit, $if->getByKey( 'ifspeed' ) ) : "",
-                min => ( $fields[ $i ] =~ /octets/ ) ? 0 : "",
-                max => ( $fields[ $i ] =~ /octets/ ) ? $if->getByKey( 'ifspeed' ) : ""
-            );
+            $np->add_perfdata( %{ $perfdataoptions } );
         }
 
         # Generate the status string
@@ -1148,8 +1198,8 @@ use Data::Dumper;
     #   Input           : $letter       A letter
     #                     $flag         A flag
     #                     $expected     A expected value of the flag
-    #                     $observe      Is the flag observed
-    #   Output          : $string       The message
+    #                     $string       A reference to the status string
+    #   Output          : 0/2           Return OK (0) or CRITICAL (2)
     #-------------------------------------------------------------------------------
     sub checkFlag
     {
@@ -1180,7 +1230,8 @@ use Data::Dumper;
     #
     #   Input           : $np           A reference to Monitoring::Plugin
     #                     $if           A reference to the interface
-    #   Output          : $string       The message
+    #                     $string       A reference to the status string
+    #   Output          : 0/2           Return OK (0) or CRITICAL (2)
     #-------------------------------------------------------------------------------
     sub checkFlags
     {
@@ -1337,15 +1388,15 @@ use Data::Dumper;
     );
 
     $np->add_arg(
-        spec =>         'directory|d=s',
-        help =>         "The name of the directory where to stor the gap file (default /tmp)",
-        default =>      "/tmp",
+        spec        => 'directory|d=s',
+        help        => "The name of the directory where to stor the gap file (default /tmp)",
+        default     => "/tmp",
     );
 
     $np->add_arg(
-        spec =>         'gapfile|g=s',
-        help =>         "The name of the gap file (default check_snmp_interface___IF__.gap)",
-        default =>      "check_snmp_interface___IF__.gap",
+        spec        => 'gapfile|g=s',
+        help        => "The name of the gap file (default check_snmp_interface___IF__.gap)",
+        default     => "check_snmp_interface___IF__.gap",
     );
 
     # Define interface request arguments
