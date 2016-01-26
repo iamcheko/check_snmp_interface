@@ -979,7 +979,7 @@ use Data::Dumper;
     #---------------------------------------------------------------------------
     my $NAME = "check_snmp_interface";
     my $SHORTNAME = "Network Interface";
-    my $VERSION = "0.0.4";
+    my $VERSION = "0.0.2";
     my $LICENSE = "GNU v2 or later, see <http://www.fsf.org/copyleft/gpl.txt>";
 
     #---------------------------------------------------------------------------
@@ -1096,6 +1096,7 @@ use Data::Dumper;
         my @alias = split(",", $np->opts->alias) if ( $np->opts->alias );
         my $interface = $if->getByKey( lc( $np->opts->field ) );
         my $ret = 0;
+        my $r;
         my $string = "";
 
         return ( 1, $interface . " parameters do not align. " ) if ( scalar @fields ne scalar @warning or scalar @fields ne scalar @critical );
@@ -1127,7 +1128,8 @@ use Data::Dumper;
         }
 
         # Generate the status string
-        $string .= checkFlags( $np, $if );
+        $r .= checkFlags( $np, $if, \$string );
+        $ret = $r if ( $ret < $r );
         for ( my $i = 0; $i < scalar @label; $i++ )
         {
             my $a = $alias[ $i ] ? $alias[ $i ] : $label[ $i ];
@@ -1154,16 +1156,19 @@ use Data::Dumper;
         my $letter = shift;
         my $flag = shift;
         my $expected = shift;
+        my $string = shift;
 
         return "" if ( $expected eq "none" );
 
         if ( lc( $flag ) ne lc( $expected ) )
         {
-            return ' ' . $letter . '=<span class="serviceCRITICAL">' . $flag . '</span>';
+            $$string .= ' ' . $letter . '=<span class="serviceCRITICAL">' . $flag . '</span>';
+            return 2;
         }
         else
         {
-            return ' ' . $letter . '=<span class="serviceOK">' . $flag . '</span>';
+            $$string .= ' ' . $letter . '=<span class="serviceOK">' . $flag . '</span>';
+            return 0;
         }
     }
 
@@ -1181,15 +1186,20 @@ use Data::Dumper;
     {
         my $np = shift;
         my $if = shift;
-        my $string = "";
+        my $string = shift;
+        my $return = 0;
+        my $r;
 
-        $string .= checkFlag( 'A', $if->getByKey( 'ifadminstatus' ), $np->opts->adminstat );
-        $string .= checkFlag( 'O', $if->getByKey( 'ifoperstatus' ), $np->opts->operstat );
+        $return = checkFlag( 'A', $if->getByKey( 'ifadminstatus' ), $np->opts->adminstat, $string );
+        $r = checkFlag( 'O', $if->getByKey( 'ifoperstatus' ), $np->opts->operstat, $string );
+        $return = ( $r > $return ) ? $r : $return;
+
         if ( $np->opts->snmpversion > 1 )
         {
-            $string .= checkFlag( 'P', $if->getByKey( 'ifpromiscuousmode' ), $np->opts->promiscuous );
+            $r = $return = checkFlag( 'P', $if->getByKey( 'ifpromiscuousmode' ), $np->opts->promiscuous, $string );
+            $return = ( $r > $return ) ? $r : $return;
         }
-        return $string
+        return $return;
     }
 
     #-------------------------------------------------------------------------------
