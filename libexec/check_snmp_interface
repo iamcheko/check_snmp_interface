@@ -359,9 +359,92 @@ use Data::Dumper;
     }
 
     #-------------------------------------------------------------------------------
+    #   Methode         : _getFactor
+    #-------------------------------------------------------------------------------
+    #   Description     : Returns the factor for a unit prefix.
+    #                     ''          1000**0
+    #                     kilo    k   1000**1
+    #                     mega    M   1000**2
+    #                     giga    G   1000**3
+    #                     tera    T   1000**4
+    #                     peta    P   1000**5
+    #                     exa     E   1000**6
+    #                     zetta   Z   1000**7
+    #                     yotta   Y   1000**8
+    #
+    #   Input           : $self         Reference to this object
+    #                     $prefix       The unit prefix
+    #   Output          : $factor       The factor
+    #-------------------------------------------------------------------------------
+    sub _getFactor
+    {
+        my $self = shift;
+        my $prefix = shift;
+        my $up = { 'k' => 1, 'M' => 2, 'G' => 3, 'T' => 4, 'P' => 5, 'Z' => 6, 'Y' => 7 };
+
+        if ( $prefix )
+        {
+            return 1000**$up->{ $prefix };
+        }
+        else
+        {
+            return 1;
+        }
+    }
+
+    #-------------------------------------------------------------------------------
     #   Methode         : toUnit
     #-------------------------------------------------------------------------------
-    #   Description     : Calculate from octets to the unit of choice.
+    #   Description     : Calculate from bps to the unit of choice.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $key          The key of the value which has to be
+    #                                   converted
+    #                     $unit         The unit to which the value has to be
+    #                                   converted
+    #   Output          : $value        The converted value
+    #
+    #-------------------------------------------------------------------------------
+    sub toUnit
+    {
+        my $self = shift;
+        my $key = shift;
+        my $unit = shift;
+        my $factor = $self->_getFactor( substr( $unit, 0, -3 ) );
+        my $value = $self->getByKey( $key );
+
+        return 0.00 if ( $value eq 0 );
+
+        if ( $unit =~ /Bps/ )
+        {
+            $value /= 8;
+        }
+        
+        if ( $unit =~ /bps|Bps/ )
+        {
+            return sprintf( "%.2f", $value / $factor );
+        }
+        elsif ( $unit eq "%" )
+        {
+            if ( $self->getByKey( 'ifspeed' ) eq 0 )
+            {
+                return 100.00;
+            }
+            else
+            {
+                return sprintf( "%.2f", $value *  100 / $self->getByKey( 'ifspeed' ) );
+            }
+        }
+        else
+        {
+            return sprintf( "%.2f", $value );
+        }
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : unitTo
+    #-------------------------------------------------------------------------------
+    #   Description     : Calculate from unit of choice to bits per second.
     #
     #   Input           : $self         Reference to this object
     #                     $key          The key of the value which has to be
@@ -370,58 +453,37 @@ use Data::Dumper;
     #                                   converted
     #   Output          : $value        The converted value
     #-------------------------------------------------------------------------------
-    sub toUnit
+    sub unitTo
     {
         my $self = shift;
-        my $key = shift;
+        my $value = shift;
         my $unit = shift;
+        my $speed = $self->getByKey( 'ifspeed' );
+        my $factor = $self->_getFactor( substr( $unit, 0, -3 ) );
 
-        if ( $unit eq "bps" )
+        if ( $unit =~ /Bps/ )
         {
-            return sprintf( "%.2f", $self->getByKey( $key ) );
+            $value *= 8;
         }
-        elsif ( $unit eq "kbps" )
+
+        if ( $unit =~ /bps|Bps/ )
         {
-            return sprintf( "%.2f", $self->getByKey( $key ) / 1000 );
-        }
-        elsif ( $unit eq "Mbps" )
-        {
-            return sprintf( "%.2f", $self->getByKey( $key ) / 1000**2 );
-        }
-        elsif ( $unit eq "Gbps" )
-        {
-            return sprintf( "%.2f", $self->getByKey( $key ) / 1000**3 );
-        }
-        elsif ( $unit eq "Bps" )
-        {
-            return sprintf( "%.2f", $self->getByKey( $key ) / 8 );
-        }
-        elsif ( $unit eq "kBps" )
-        {
-            return sprintf( "%.2f", $self->getByKey( $key ) / 8 / 1000 );
-        }
-        elsif ( $unit eq "MBps" )
-        {
-            return sprintf( "%.2f", $self->getByKey( $key ) / 8 / 1000**2 );
-        }
-        elsif ( $unit eq "GBps" )
-        {
-            return sprintf( "%.2f", $self->getByKey( $key ) / 8 / 1000**3 );
+            return sprintf( "%.2f", $value * $factor );
         }
         elsif ( $unit eq "%" )
         {
-            if ( $self->getByKey( 'ifspeed' ) eq 0 )
+            if ( $speed eq 0 )
             {
-                return 100;
+                return 0.00;
             }
             else
             {
-                return sprintf( "%.2f", $self->getByKey( $key ) *  100 / $self->getByKey( 'ifspeed' ) );
+                return sprintf( "%.2f", $speed * $value / 100 );
             }
         }
         else
         {
-            return sprintf( "%.2f", $self->getByKey( $key ) );
+            return sprintf( "%.2f", $value );
         }
     }
 
@@ -979,7 +1041,7 @@ use Data::Dumper;
     #---------------------------------------------------------------------------
     my $NAME = "check_snmp_interface";
     my $SHORTNAME = "Network Interface";
-    my $VERSION = "0.0.6";
+    my $VERSION = "0.0.7";
     my $LICENSE = "GNU v2 or later, see <http://www.fsf.org/copyleft/gpl.txt>";
 
     #---------------------------------------------------------------------------
@@ -1113,8 +1175,8 @@ use Data::Dumper;
 
         if ( $warning ne "none" and $critical ne "none" )
         {
-            $warning = unitTo( $warning, $if->getUnitByKey( $key ), $if->getByKey( 'ifspeed' ) );
-            $critical = unitTo( $critical, $if->getUnitByKey( $key ), $if->getByKey( 'ifspeed' ) );
+            $warning = $if->unitTo( $warning, $if->getUnitByKey( $key ) );
+            $critical = $if->unitTo( $critical, $if->getUnitByKey( $key ) );
             $thdoptions->{ 'check' }    = $if->getByKey( $key );
             $thdoptions->{ 'warning' }  = $warning;
             $thdoptions->{ 'critical' } = $critical;
@@ -1126,7 +1188,7 @@ use Data::Dumper;
         }
 
         $prfdtptions->{ 'label' }       = "'" . $if->getByKey( lc( $np->opts->field ) ) . "_" . $key . "'";
-        $prfdtptions->{ 'value' }       = unitTo( $if->getByKey( $key ), $uom, $if->getByKey( 'ifspeed' ) );
+        $prfdtptions->{ 'value' }       = $if->unitTo( $if->getByKey( $key ), $uom );
         $prfdtptions->{ 'uom' }         = $uom;
         $prfdtptions->{ 'warning' }     = $warning;
         $prfdtptions->{ 'critical' }    = $critical;
@@ -1251,66 +1313,6 @@ use Data::Dumper;
             $return = ( $r gt $return ) ? $r : $return;
         }
         return $return;
-    }
-
-    #-------------------------------------------------------------------------------
-    #   Methode         : unitTo
-    #-------------------------------------------------------------------------------
-    #   Description     : Calculate from unit of choice to octets.
-    #
-    #   Input           : $self         Reference to this object
-    #                     $key          The key of the value which has to be
-    #                                   converted
-    #                     $unit         The unit to which the value has to be
-    #                                   converted
-    #   Output          : $value        The converted value
-    #-------------------------------------------------------------------------------
-    sub unitTo
-    {
-        my $value = shift;
-        my $unit = shift;
-        my $speed = shift;
-
-        if ( $unit eq "bps" )
-        {
-            return sprintf( "%.2f", $value );
-        }
-        elsif ( $unit eq "kbps" )
-        {
-            return sprintf( "%.2f", $value * 1000 );
-        }
-        elsif ( $unit eq "Mbps" )
-        {
-            return sprintf( "%.2f", $value * 1000**2 );
-        }
-        elsif ( $unit eq "Gbps" )
-        {
-            return sprintf( "%.2f", $value * 1000**3 );
-        }
-        elsif ( $unit eq "Bps" )
-        {
-            return sprintf( "%.2f", $value / 8 );
-        }
-        elsif ( $unit eq "kBps" )
-        {
-            return sprintf( "%.2f", $value / 8 * 1000 );
-        }
-        elsif ( $unit eq "MBps" )
-        {
-            return sprintf( "%.2f", $value / 8 * 1000**2 );
-        }
-        elsif ( $unit eq "GBps" )
-        {
-            return sprintf( "%.2f", $value / 8 * 1000**3 );
-        }
-        elsif ( $unit eq "%" )
-        {
-            return sprintf( "%.2f", $speed * $value / 100 );
-        }
-        else
-        {
-            return sprintf( "%.2f", $value );
-        }
     }
 
     #---------------------------------------------------------------------------
