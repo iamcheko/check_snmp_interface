@@ -69,10 +69,9 @@ foreach ( $DS as $I )
     if (preg_match('/.*octets/', $NAME[$I]) ? true : false)
     {
         $def[1] .= rrd::def( "var$I", $rrdfile, $DS[$I], 'AVERAGE' );
-        $def[1] .= rrd::cdef( "cvar$I", "var$I,8,*" );
-        $def[1] .= rrd::area( "cvar$I", $A_COLORS[$I], rrd::cut( $LABELS[$I], $slen ) );
-        $def[1] .= rrd::line1( "cvar$I", $L_COLORS[$I] );
-        $def[1] .= rrd::gprint( "cvar$I", array("AVERAGE", "MAX", "LAST"), "%8.2lf%s");
+        $def[1] .= rrd::area( "var$I", $A_COLORS[$I], rrd::cut( $LABELS[$I], $slen ) );
+        $def[1] .= rrd::line1( "var$I", $L_COLORS[$I] );
+        $def[1] .= rrd::gprint( "var$I", array("AVERAGE", "MAX", "LAST"), "%8.2lf%s");
 
     }
     else
