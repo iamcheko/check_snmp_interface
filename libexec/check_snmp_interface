@@ -39,7 +39,7 @@ use warnings;
 #                     Used Modules
 #-------------------------------------------------------------------------------
 use lib qw( /usr/local/nrpe/perl/lib );
-use Nagios::Plugin;
+use Monitoring::Plugin;
 use Net::SNMP;
 use Data::Dumper;
 
@@ -85,7 +85,7 @@ use Data::Dumper;
             'l_ifinoctets'                  => 0,
             'l_ifinerrors'                  => 0,
             'timegap'                       => 0,
-            'unit'                          => "Bps"
+            'unit'                          => "bps"
         };
         bless $self, $class;
         $self->_init();
@@ -107,13 +107,13 @@ use Data::Dumper;
 
         $self->setKeyByOID( 'ifindex',       '.1.3.6.1.2.1.2.2.1.1'  . "." . $self->getByKey( "ifindex" ), "numeric" );
         $self->setKeyByOID( 'ifdescr',       '.1.3.6.1.2.1.2.2.1.2'  . "." . $self->getByKey( "ifindex" ), "string" );
-        $self->setKeyByOID( 'ifspeed',       '.1.3.6.1.2.1.2.2.1.5'  . "." . $self->getByKey( "ifindex" ), "numeric", {}, ( 1 / 8 ) );
+        $self->setKeyByOID( 'ifspeed',       '.1.3.6.1.2.1.2.2.1.5'  . "." . $self->getByKey( "ifindex" ), "numeric" );
         $self->setKeyByOID( 'ifadminstatus', '.1.3.6.1.2.1.2.2.1.7'  . "." . $self->getByKey( "ifindex" ), "numeric", { 1 => 'up', 2 => 'down', 3 => 'testing' } );
         $self->setKeyByOID( 'ifoperstatus',  '.1.3.6.1.2.1.2.2.1.8'  . "." . $self->getByKey( "ifindex" ), "numeric", { 1 => 'up', 2 => 'down', 3 => 'testing', 4 => 'unknown', 5 => 'dormant', 6 => 'notpresent', 7 => 'lowerlayerdown' } );
-        $self->setKeyByOID( 'ifinoctets',    '.1.3.6.1.2.1.2.2.1.10' . "." . $self->getByKey( "ifindex" ), "numeric" );
+        $self->setKeyByOID( 'ifinoctets',    '.1.3.6.1.2.1.2.2.1.10' . "." . $self->getByKey( "ifindex" ), "numeric", {}, 8 );
         $self->setKeyByOID( 'ifindiscards',  '.1.3.6.1.2.1.2.2.1.13' . "." . $self->getByKey( "ifindex" ), "numeric" );
         $self->setKeyByOID( 'ifinerrors',    '.1.3.6.1.2.1.2.2.1.14' . "." . $self->getByKey( "ifindex" ), "numeric" );
-        $self->setKeyByOID( 'ifoutoctets',   '.1.3.6.1.2.1.2.2.1.16' . "." . $self->getByKey( "ifindex" ), "numeric" );
+        $self->setKeyByOID( 'ifoutoctets',   '.1.3.6.1.2.1.2.2.1.16' . "." . $self->getByKey( "ifindex" ), "numeric", {}, 8 );
         $self->setKeyByOID( 'ifoutdiscards', '.1.3.6.1.2.1.2.2.1.19' . "." . $self->getByKey( "ifindex" ), "numeric" );
         $self->setKeyByOID( 'ifouterrors',   '.1.3.6.1.2.1.2.2.1.20' . "." . $self->getByKey( "ifindex" ), "numeric" );
 
@@ -378,35 +378,35 @@ use Data::Dumper;
 
         if ( $unit eq "bps" )
         {
-            return sprintf( "%.2f", $self->getByKey( $key ) * 8 );
+            return sprintf( "%.2f", $self->getByKey( $key ) );
         }
         elsif ( $unit eq "kbps" )
         {
-            return sprintf( "%.2f", $self->getByKey( $key ) * 8 / 1000 );
+            return sprintf( "%.2f", $self->getByKey( $key ) / 1000 );
         }
         elsif ( $unit eq "Mbps" )
         {
-            return sprintf( "%.2f", $self->getByKey( $key ) * 8 / 1000**2 );
+            return sprintf( "%.2f", $self->getByKey( $key ) / 1000**2 );
         }
         elsif ( $unit eq "Gbps" )
         {
-            return sprintf( "%.2f", $self->getByKey( $key ) * 8 / 1000**3 );
+            return sprintf( "%.2f", $self->getByKey( $key ) / 1000**3 );
         }
         elsif ( $unit eq "Bps" )
         {
-            return sprintf( "%.2f", $self->getByKey( $key ) );
+            return sprintf( "%.2f", $self->getByKey( $key ) / 8 );
         }
         elsif ( $unit eq "kBps" )
         {
-            return sprintf( "%.2f", $self->getByKey( $key ) / 1000 );
+            return sprintf( "%.2f", $self->getByKey( $key ) / 8 / 1000 );
         }
         elsif ( $unit eq "MBps" )
         {
-            return sprintf( "%.2f", $self->getByKey( $key ) / 1000**2 );
+            return sprintf( "%.2f", $self->getByKey( $key ) / 8 / 1000**2 );
         }
         elsif ( $unit eq "GBps" )
         {
-            return sprintf( "%.2f", $self->getByKey( $key ) / 1000**3 );
+            return sprintf( "%.2f", $self->getByKey( $key ) / 8 / 1000**3 );
         }
         elsif ( $unit eq "%" )
         {
@@ -444,8 +444,8 @@ use Data::Dumper;
         print "\tInterface index          = " . $self->getByKey( "ifindex" ) . "\n";
         print "\tInterface description    = " . $self->getByKey( "ifdescr" ) . "\n";
         print "\tBandwidth                = " . $self->getByKey( "ifspeed" ) . "\n";
-        print "\tInput traffic            = " . $self->getByKey( "ifinoctets" ) . " Octets per Second\n";
-        print "\tOutput traffic           = " . $self->getByKey( "ifoutoctets" ) . " Octets per Second\n";
+        print "\tInput traffic            = " . $self->getByKey( "ifinoctets" ) . " Bits per Second\n";
+        print "\tOutput traffic           = " . $self->getByKey( "ifoutoctets" ) . " Bits per Second\n";
         print "\tOperation status         = " . $self->getByKey( "ifoperstatus" ) . "\n";
         print "\tAdministration status    = " . $self->getByKey( "ifadminstatus" ) . "\n";
         print "\tInput discards           = " . $self->getByKey( "ifindiscards" ) . " Packets per Second\n";
@@ -510,9 +510,9 @@ use Data::Dumper;
         my $self = shift;
 
         $self->setKeyByOID( 'ifname',            '.1.3.6.1.2.1.31.1.1.1.1'  . "." . $self->getByKey( "ifindex" ), "string" );
-        $self->setKeyByOID( 'ifinoctets',        '.1.3.6.1.2.1.31.1.1.1.6'  . "." . $self->getByKey( "ifindex" ), "numeric" );
-        $self->setKeyByOID( 'ifoutoctets',       '.1.3.6.1.2.1.31.1.1.1.10' . "." . $self->getByKey( "ifindex" ), "numeric" );
-        $self->setKeyByOID( 'ifspeed',           '.1.3.6.1.2.1.31.1.1.1.15' . "." . $self->getByKey( "ifindex" ), "numeric", {}, ( 10 ** 6 / 8 ) );
+        $self->setKeyByOID( 'ifinoctets',        '.1.3.6.1.2.1.31.1.1.1.6'  . "." . $self->getByKey( "ifindex" ), "numeric", {}, 8 );
+        $self->setKeyByOID( 'ifoutoctets',       '.1.3.6.1.2.1.31.1.1.1.10' . "." . $self->getByKey( "ifindex" ), "numeric", {}, 8 );
+        $self->setKeyByOID( 'ifspeed',           '.1.3.6.1.2.1.31.1.1.1.15' . "." . $self->getByKey( "ifindex" ), "numeric", {}, ( 10 ** 6 ) );
         $self->setKeyByOID( 'ifpromiscuousmode', '.1.3.6.1.2.1.31.1.1.1.16' . "." . $self->getByKey( "ifindex" ), "numeric", { 1 => 'on', 2 => 'off' } );
         $self->setKeyByOID( 'ifalias',           '.1.3.6.1.2.1.31.1.1.1.18' . "." . $self->getByKey( "ifindex" ), "string" );
 
@@ -569,8 +569,8 @@ use Data::Dumper;
         print "\tInterface name           = " . $self->getByKey( "ifname" ) . "\n";
         print "\tInterface description    = " . $self->getByKey( "ifdescr" ) . "\n";
         print "\tInterface alias          = " . $self->getByKey( "ifalias" ) . "\n";
-        print "\tInput traffic            = " . $self->getByKey( "ifinoctets" ) . " Octets per Second\n";
-        print "\tOutput traffic           = " . $self->getByKey( "ifoutoctets" ) . " Octets per Second\n";
+        print "\tInput traffic            = " . $self->getByKey( "ifinoctets" ) . " Bits per Second\n";
+        print "\tOutput traffic           = " . $self->getByKey( "ifoutoctets" ) . " Bits per Second\n";
         print "\tOperation status         = " . $self->getByKey( "ifoperstatus" ) . "\n";
         print "\tAdministration status    = " . $self->getByKey( "ifadminstatus" ) . "\n";
         print "\tInput discards           = " . $self->getByKey( "ifindiscards" ) . " Packets per Second\n";
@@ -979,7 +979,7 @@ use Data::Dumper;
     #---------------------------------------------------------------------------
     my $NAME = "check_snmp_interface";
     my $SHORTNAME = "Network Interface";
-    my $VERSION = "0.0.5";
+    my $VERSION = "0.0.6";
     my $LICENSE = "GNU v2 or later, see <http://www.fsf.org/copyleft/gpl.txt>";
 
     #---------------------------------------------------------------------------
@@ -987,7 +987,7 @@ use Data::Dumper;
     #---------------------------------------------------------------------------
     #   Function        : This function tries to create the SNMP session.
     #
-    #   Input           : $np           Nagios Plugin reference
+    #   Input           : $np           Monitoring Plugin reference
     #                     $session      SNMP session reference
     #   Output          : -             none
     #---------------------------------------------------------------------------
@@ -1052,7 +1052,7 @@ use Data::Dumper;
     #   Function        : This function tries to catch the index of the needed
     #                     network interface.
     #
-    #   Input           : $np           Nagios Plugin reference
+    #   Input           : $np           Monitoring Plugin reference
     #                     $snmp         SNMP session reference
     #                     $ifobject     the hash into wich we store the data
     #                     $scheme       the hash with all oids we need
@@ -1081,7 +1081,7 @@ use Data::Dumper;
     #                     checkThresholds a bit more readeble. It creates two
     #                     hash references.
     #
-    #   Input           : $np           Nagios Plugin reference
+    #   Input           : $np           Monitoring Plugin reference
     #                     $if           A reference to the interface
     #                     $thdoptions   A hashreference for the threshold
     #                                   options
@@ -1106,7 +1106,7 @@ use Data::Dumper;
 
         if ( $key =~ /octets/ )
         {
-            $uom = "Bps";
+            $uom = "bps";
             $min = 0;
             $max = $if->getByKey( 'ifspeed' );
         }
@@ -1172,15 +1172,15 @@ use Data::Dumper;
             if ( %{ $thresholdoptions } )
             {
                 my $r =  $np->check_threshold( %{ $thresholdoptions } );
-                $ret = $r if ( $ret < $r );
+                $ret = $r if ( $ret lt $r );
             }
             $np->add_perfdata( %{ $perfdataoptions } );
         }
 
         # Generate the status string
         $r .= checkFlags( $np, $if, \$string );
-        $ret = $r if ( $ret < $r );
-        for ( my $i = 0; $i < scalar @label; $i++ )
+        $ret = $r if ( $ret lt $r );
+        for ( my $i = 0; $i lt scalar @label; $i++ )
         {
             my $a = $alias[ $i ] ? $alias[ $i ] : $label[ $i ];
 
@@ -1243,12 +1243,12 @@ use Data::Dumper;
 
         $return = checkFlag( 'A', $if->getByKey( 'ifadminstatus' ), $np->opts->adminstat, $string );
         $r = checkFlag( 'O', $if->getByKey( 'ifoperstatus' ), $np->opts->operstat, $string );
-        $return = ( $r > $return ) ? $r : $return;
+        $return = ( $r gt $return ) ? $r : $return;
 
         if ( $np->opts->snmpversion > 1 )
         {
             $r = $return = checkFlag( 'P', $if->getByKey( 'ifpromiscuousmode' ), $np->opts->promiscuous, $string );
-            $return = ( $r > $return ) ? $r : $return;
+            $return = ( $r gt $return ) ? $r : $return;
         }
         return $return;
     }
@@ -1273,35 +1273,35 @@ use Data::Dumper;
 
         if ( $unit eq "bps" )
         {
-            return sprintf( "%.2f", $value / 8 );
+            return sprintf( "%.2f", $value );
         }
         elsif ( $unit eq "kbps" )
         {
-            return sprintf( "%.2f", $value * 1000 / 8 );
+            return sprintf( "%.2f", $value * 1000 );
         }
         elsif ( $unit eq "Mbps" )
         {
-            return sprintf( "%.2f", $value * 1000**2 / 8 );
+            return sprintf( "%.2f", $value * 1000**2 );
         }
         elsif ( $unit eq "Gbps" )
         {
-            return sprintf( "%.2f", $value * 1000**3 / 8 );
+            return sprintf( "%.2f", $value * 1000**3 );
         }
         elsif ( $unit eq "Bps" )
         {
-            return sprintf( "%.2f", $value );
+            return sprintf( "%.2f", $value / 8 );
         }
         elsif ( $unit eq "kBps" )
         {
-            return sprintf( "%.2f", $value * 1000 );
+            return sprintf( "%.2f", $value / 8 * 1000 );
         }
         elsif ( $unit eq "MBps" )
         {
-            return sprintf( "%.2f", $value * 1000**2 );
+            return sprintf( "%.2f", $value / 8 * 1000**2 );
         }
         elsif ( $unit eq "GBps" )
         {
-            return sprintf( "%.2f", $value * 1000**3 );
+            return sprintf( "%.2f", $value / 8 * 1000**3 );
         }
         elsif ( $unit eq "%" )
         {
@@ -1323,7 +1323,7 @@ use Data::Dumper;
     my $ret = 0;
     my $string = "";
 
-    my $np = Nagios::Plugin->new(
+    my $np = Monitoring::Plugin->new(
         usage       => "",
         shortname   => $SHORTNAME,
         version     => $VERSION,
@@ -1432,7 +1432,7 @@ use Data::Dumper;
     $np->add_arg(
         spec        => 'field|f=s',
         help        => "One of ifName, ifDescr, or ifAlias",
-        default     => 'ifDescr'
+        default     => 'ifName'
     );
 
     $np->add_arg(
@@ -1468,7 +1468,7 @@ use Data::Dumper;
     $np->add_arg(
         spec        => 'unit|u=s',
         help        => "use one of bps, Bps, kbps, kBps, Mbps, MBps, Gbps, GBps or % as unit",
-        default     => 'Bps'
+        default     => 'bps'
     );
 
     # read the cli options
