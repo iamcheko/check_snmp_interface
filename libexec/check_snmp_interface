@@ -1163,6 +1163,7 @@ use Data::Dumper;
         my $key = shift;
         my $warning = shift;
         my $critical = shift;
+        my $labeluom = "_in_"
         my $uom = "Pkts";
         my $min = "";
         my $max = "";
@@ -1188,7 +1189,13 @@ use Data::Dumper;
             $critical = "";
         }
 
-        $prfdtptions->{ 'label' }       = "'" . $if->getByKey( lc( $np->opts->field ) ) . "_" . $key . "'";
+        if ( $np->opts->suppressunit )
+        {
+            $labeluom .= $uom;
+            $uom = "";
+        }
+
+        $prfdtptions->{ 'label' }       = "'" . $if->getByKey( lc( $np->opts->field ) ) . "_" . $key . $labeluom . "'";
         $prfdtptions->{ 'value' }       = $if->unitTo( $if->getByKey( $key ), $uom );
         $prfdtptions->{ 'uom' }         = $uom;
         $prfdtptions->{ 'warning' }     = $warning;
@@ -1472,6 +1479,11 @@ use Data::Dumper;
         spec        => 'unit|u=s',
         help        => "use one of bps, Bps, kbps, kBps, Mbps, MBps, Gbps, GBps or % as unit",
         default     => 'bps'
+    );
+
+    $np->add_arg(
+        spec        => 'suppressunit',
+        help        => "for tools which cant handle unit, suppress them",
     );
 
     # read the cli options
