@@ -15,7 +15,7 @@ releases:
         name: check_snmp_interface
         url: "file:///libexec/check_snmp_interface"
         description: "Check script for icinga, naemon and nagios to measure network traffic and status flags"
-        checksum: a0662c373355206e14896f62b435df8b
+        checksum: 2e5678f6d776cc6b30e1bcae45fa3b2e
       -
         name: check_snmp_interface.php
         url: "file:///share/templates/check_snmp_interface.php"
