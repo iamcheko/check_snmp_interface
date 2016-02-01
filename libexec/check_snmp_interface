@@ -388,7 +388,7 @@ use Data::Dumper;
         }
         else
         {
-            return 0;
+            return 1;
         }
     }
 
@@ -1041,7 +1041,7 @@ use Data::Dumper;
     #---------------------------------------------------------------------------
     my $NAME = "check_snmp_interface";
     my $SHORTNAME = "Network Interface";
-    my $VERSION = "0.0.7";
+    my $VERSION = "0.0.8";
     my $LICENSE = "GNU v2 or later, see <http://www.fsf.org/copyleft/gpl.txt>";
 
     #---------------------------------------------------------------------------
@@ -1125,15 +1125,16 @@ use Data::Dumper;
     {
         my $np          = shift;
         my $snmp        = shift;
-        my $ifobject    = shift;
+        my $ifobject    = {};
 
-        $$ifobject = new Interfaces(
+        $ifobject = new Interfaces(
             $snmp,
             $np->opts->field,
             $np->opts->name,
             $np->opts->regex,
             $np->opts->snmpversion
         );
+        return $ifobject;
     }
 
     #---------------------------------------------------------------------------
@@ -1319,9 +1320,9 @@ use Data::Dumper;
     #                     Main
     #---------------------------------------------------------------------------
     my $snmp;
-    my $ifobject;
+    my $ifobject = {};
     my $gapfile;
-    my $gap = ();
+    my $gap = {};
     my $ret = 0;
     my $string = "";
 
@@ -1434,7 +1435,7 @@ use Data::Dumper;
     $np->add_arg(
         spec        => 'field|f=s',
         help        => "One of ifName, ifDescr, or ifAlias",
-        default     => 'ifName'
+        default     => 'ifDescr'
     );
 
     $np->add_arg(
@@ -1483,6 +1484,7 @@ use Data::Dumper;
 
     # collect the interface informations and store them in a hash
     $ifobject = getIfObject( $np, $snmp );
+    print Dumper( "Interface objects:\n", $ifobject ) if ( $np->opts->verbose );
 
     foreach my $if ( sort @{ $ifobject->getNames() } )
     {
