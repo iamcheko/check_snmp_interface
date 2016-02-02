@@ -418,10 +418,10 @@ use Data::Dumper;
     {
         my $self = shift;
         my $key = shift;
-        my $unit = $self->getByKey( $key, 'unit' );
-        my $speed = 0;
-        my $factor = $self->_getFactor( substr( $unit, 0, -3 ) );
+        my $unit = shift;
+        my $autoconvert = shift;
         my $value = $self->getByKey( $key, 'value' );
+        my $up = { 0 => '', 1 => 'k', 2 => 'M', 3 => 'G', 4 => 'T', 5 => 'P', 6 => 'Z', 7 => 'Y' };
 
         return 0.00 if ( $value eq 0 );
 
@@ -432,23 +432,24 @@ use Data::Dumper;
         
         if ( $unit =~ /bps|Bps/ )
         {
-            return sprintf( "%.2f", $value / $factor );
+            $unit = $up->{ int( length( $value ) / 3 ) } . substr( $unit, -3, 3 ) if ( $autoconvert );
+            return ( sprintf( "%.2f", $value / $self->_getFactor( substr( $unit, 0, -3 ) ) ), $unit );
         }
         elsif ( $unit eq "%" )
         {
-            $speed = $self->getByKey( 'ifspeed', 'value' );
+            my $speed = $self->getByKey( 'ifspeed', 'value' );
             if ( $speed eq 0 )
             {
-                return 100.00;
+                return ( 100.00, $unit );
             }
             else
             {
-                return sprintf( "%.2f", $value *  100 / $speed );
+                return ( sprintf( "%.2f", $value *  100 / $speed ), $unit );
             }
         }
         else
         {
-            return sprintf( "%.2f", $value );
+            return ( sprintf( "%.2f", $value ), $unit );
         }
     }
 
@@ -469,8 +470,6 @@ use Data::Dumper;
         my $self = shift;
         my $value = shift;
         my $unit = shift;
-        my $speed = 0;
-        my $factor = $self->_getFactor( substr( $unit, 0, -3 ) );
 
         if ( $unit =~ /Bps/ )
         {
@@ -479,11 +478,11 @@ use Data::Dumper;
 
         if ( $unit =~ /bps|Bps/ )
         {
-            return sprintf( "%.2f", $value * $factor );
+            return sprintf( "%.2f", $value * $self->_getFactor( substr( $unit, 0, -3 ) ) );
         }
         elsif ( $unit eq "%" )
         {
-            $speed = $self->getByKey( 'ifspeed', 'value' );
+            my $speed = $self->getByKey( 'ifspeed', 'value' );
             if ( $speed eq 0 )
             {
                 return 0.00;
@@ -1166,7 +1165,7 @@ use Data::Dumper;
     #---------------------------------------------------------------------------
     my $NAME = "check_snmp_interface";
     my $SHORTNAME = "Network Interface";
-    my $VERSION = "0.1.0";
+    my $VERSION = "0.1.1";
     my $LICENSE = "GNU v2 or later, see <http://www.fsf.org/copyleft/gpl.txt>";
 
     #---------------------------------------------------------------------------
@@ -1301,8 +1300,10 @@ use Data::Dumper;
 
         if ( $warning ne "none" and $critical ne "none" )
         {
-            $warning = $if->unitTo( $warning, $if->getByKey( $key, 'unit' ) );
-            $critical = $if->unitTo( $critical, $if->getByKey( $key, 'unit' ) );
+            # $warning = $if->unitTo( $warning, $if->getByKey( $key, 'unit' ) );
+            # $critical = $if->unitTo( $critical, $if->getByKey( $key, 'unit' ) );
+            $warning = $if->unitTo( $warning, $np->opts->unit );
+            $critical = $if->unitTo( $critical, $np->opts->unit );
             $thdoptions->{ 'check' }    = $if->getByKey( $key, 'value' );
             $thdoptions->{ 'warning' }  = $warning;
             $thdoptions->{ 'critical' } = $critical;
@@ -1376,8 +1377,9 @@ use Data::Dumper;
         for ( my $i = 0; $i lt scalar @label; $i++ )
         {
             my $a = $alias[ $i ] ? $alias[ $i ] : $label[ $i ];
+            my ( $value, $unit ) = $if->toUnit( $label[ $i ], $np->opts->unit, $np->opts->autoconvert );
 
-            $string .= sprintf( " %s=%3.2f%s ", $a, $if->toUnit( $label[ $i ] ), $if->getByKey( $label[ $i ], 'unit' ) );
+            $string .= sprintf( " %s=%3.2f%s ", $a, $value, $unit );
         }
 
         return $ret, $interface . $string;
@@ -1607,6 +1609,11 @@ use Data::Dumper;
     $np->add_arg(
         spec        => 'suppressunit',
         help        => "for tools which cant handle unit, suppress them",
+    );
+
+    $np->add_arg(
+        spec        => 'autoconvert',
+        help        => "Show results in status line in human readable way",
     );
 
     # read the cli options
