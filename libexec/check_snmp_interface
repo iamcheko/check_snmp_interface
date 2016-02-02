@@ -66,26 +66,81 @@ use Data::Dumper;
     {
         my $class = shift;
         my $self = {
-            'session'                       => shift,
-            'ifindex'                       => shift,
-            'ifoutdiscards'                 => 0,
-            'ifoutoctets'                   => 0,
-            'ifspeed'                       => 0,
-            'ifindiscards'                  => 0,
-            'ifadminstatus'                 => 0,
-            'ifoperstatus'                  => 0,
-            'ifouterrors'                   => 0,
-            'ifinoctets'                    => 0,
-            'ifdescr'                       => '',
-            'ifinerrors'                    => 0,
-            'l_ifoutdiscards'               => 0,
-            'l_ifoutoctets'                 => 0,
-            'l_ifindiscards'                => 0,
-            'l_ifouterrors'                 => 0,
-            'l_ifinoctets'                  => 0,
-            'l_ifinerrors'                  => 0,
-            'timegap'                       => 0,
-            'unit'                          => "bps"
+            'session'           => shift,
+            'ifindex'           => {
+                'oid'           => '.1.3.6.1.2.1.2.2.1.1',
+                'value'         => shift,
+                'type'          => "numeric",
+            },
+            'ifdescr'           => {
+                'oid'           => '.1.3.6.1.2.1.2.2.1.2',
+                'value'         => '',
+                'type'          => "string",
+            },
+            'ifspeed'           => {
+                'oid'           => '.1.3.6.1.2.1.2.2.1.5',
+                'value'         => 0,
+                'type'          => "numeric",
+            },
+            'ifadminstatus'     => {
+                'oid'           => '.1.3.6.1.2.1.2.2.1.7',
+                'value'         => 0,
+                'type'          => "numeric",
+                'status'        => { 1 => 'up', 2 => 'down', 3 => 'testing' }
+            },
+            'ifoperstatus'      => {
+                'oid'           => '.1.3.6.1.2.1.2.2.1.8',
+                'value'         => 0,
+                'type'          => "numeric",
+                'status'        => { 1 => 'up', 2 => 'down', 3 => 'testing', 
+                                     4 => 'unknown', 5 => 'dormant', 
+                                     6 => 'notpresent', 7 => 'lowerlayerdown' }
+            },
+            'ifinoctets'        => {
+                'oid'           => '.1.3.6.1.2.1.2.2.1.10',
+                'value'         => 0,
+                'oldvalue'      => 0,
+                'unit'          => "bps",
+                'type'          => "numeric",
+                'factor'        => 8
+            },
+            'ifindiscards'      => {
+                'oid'           => '.1.3.6.1.2.1.2.2.1.13',
+                'value'         => 0,
+                'oldvalue'      => 0,
+                'unit'          => "pkts",
+                'type'          => "numeric"
+            },
+            'ifinerrors'        => {
+                'oid'           => '.1.3.6.1.2.1.2.2.1.14',
+                'value'         => 0,
+                'oldvalue'      => 0,
+                'unit'          => "pkts",
+                'type'          => "numeric"
+            },
+            'ifoutoctets'       => {
+                'oid'           => '.1.3.6.1.2.1.2.2.1.16',
+                'value'         => 0,
+                'oldvalue'      => 0,
+                'unit'          => "bps",
+                'type'          => "numeric",
+                'factor'        => 8
+            },
+            'ifoutdiscards'     => {
+                'oid'           => '.1.3.6.1.2.1.2.2.1.19',
+                'value'         => 0,
+                'oldvalue'      => 0,
+                'unit'          => "pkts",
+                'type'          => "numeric"
+            },
+            'ifouterrors'       => {
+                'oid'           => '.1.3.6.1.2.1.2.2.1.20',
+                'value'         => 0,
+                'oldvalue'      => 0,
+                'unit'          => "pkts",
+                'type'          => "numeric"
+            },
+            'timegap'           => 0,
         };
         bless $self, $class;
         $self->_init();
@@ -105,17 +160,16 @@ use Data::Dumper;
     {
         my $self = shift;
 
-        $self->setKeyByOID( 'ifindex',       '.1.3.6.1.2.1.2.2.1.1'  . "." . $self->getByKey( "ifindex" ), "numeric" );
-        $self->setKeyByOID( 'ifdescr',       '.1.3.6.1.2.1.2.2.1.2'  . "." . $self->getByKey( "ifindex" ), "string" );
-        $self->setKeyByOID( 'ifspeed',       '.1.3.6.1.2.1.2.2.1.5'  . "." . $self->getByKey( "ifindex" ), "numeric" );
-        $self->setKeyByOID( 'ifadminstatus', '.1.3.6.1.2.1.2.2.1.7'  . "." . $self->getByKey( "ifindex" ), "numeric", { 1 => 'up', 2 => 'down', 3 => 'testing' } );
-        $self->setKeyByOID( 'ifoperstatus',  '.1.3.6.1.2.1.2.2.1.8'  . "." . $self->getByKey( "ifindex" ), "numeric", { 1 => 'up', 2 => 'down', 3 => 'testing', 4 => 'unknown', 5 => 'dormant', 6 => 'notpresent', 7 => 'lowerlayerdown' } );
-        $self->setKeyByOID( 'ifinoctets',    '.1.3.6.1.2.1.2.2.1.10' . "." . $self->getByKey( "ifindex" ), "numeric", {}, 8 );
-        $self->setKeyByOID( 'ifindiscards',  '.1.3.6.1.2.1.2.2.1.13' . "." . $self->getByKey( "ifindex" ), "numeric" );
-        $self->setKeyByOID( 'ifinerrors',    '.1.3.6.1.2.1.2.2.1.14' . "." . $self->getByKey( "ifindex" ), "numeric" );
-        $self->setKeyByOID( 'ifoutoctets',   '.1.3.6.1.2.1.2.2.1.16' . "." . $self->getByKey( "ifindex" ), "numeric", {}, 8 );
-        $self->setKeyByOID( 'ifoutdiscards', '.1.3.6.1.2.1.2.2.1.19' . "." . $self->getByKey( "ifindex" ), "numeric" );
-        $self->setKeyByOID( 'ifouterrors',   '.1.3.6.1.2.1.2.2.1.20' . "." . $self->getByKey( "ifindex" ), "numeric" );
+        $self->setKeyByOID( $self->getByKey( 'ifdescr',         'oid' ) . "." . $self->getByKey( 'ifindex' ) );
+        $self->setKeyByOID( $self->getByKey( 'ifspeed',         'oid' ) . "." . $self->getByKey( 'ifindex' ) );
+        $self->setKeyByOID( $self->getByKey( 'ifadminstatus',   'oid' ) . "." . $self->getByKey( 'ifindex' ) );
+        $self->setKeyByOID( $self->getByKey( 'ifoperstatus',    'oid' ) . "." . $self->getByKey( 'ifindex' ) );
+        $self->setKeyByOID( $self->getByKey( 'ifinoctets',      'oid' ) . "." . $self->getByKey( 'ifindex' ) );
+        $self->setKeyByOID( $self->getByKey( 'ifindiscards',    'oid' ) . "." . $self->getByKey( 'ifindex' ) );
+        $self->setKeyByOID( $self->getByKey( 'ifinerrors',      'oid' ) . "." . $self->getByKey( 'ifindex' ) );
+        $self->setKeyByOID( $self->getByKey( 'ifoutoctets',     'oid' ) . "." . $self->getByKey( 'ifindex' ) );
+        $self->setKeyByOID( $self->getByKey( 'ifoutdiscards',   'oid' ) . "." . $self->getByKey( 'ifindex' ) );
+        $self->setKeyByOID( $self->getByKey( 'ifouterrors',     'oid' ) . "." . $self->getByKey( 'ifindex' ) );
 
         return $self;
     }
@@ -133,7 +187,11 @@ use Data::Dumper;
     {
         my $self = shift;
         my $key = shift;
+        my $subkey = shift;
+        my $subsubkey = shift;
 
+        return $self->{ lc( $key ) }->{ lc( $subkey ) }->{ lc( $subsubkey ) } if ( $subsubkey );
+        return $self->{ lc( $key ) }->{ lc( $subkey ) } if ( $subkey );
         return $self->{ lc( $key ) };
     }
 
@@ -150,10 +208,18 @@ use Data::Dumper;
     sub setByKey
     {
         my $self = shift;
-        my $key = shift;
         my $value = shift;
+        my $key = shift;
+        my $subkey = shift;
 
-        $self->{ lc( $key ) } = $value;
+        if ( $subkey )
+        {
+            $self->{ lc( $key ) }->{ lc( $subkey ) } = $value;
+        }
+        else
+        {
+            $self->{ lc( $key ) } = $value;
+        }
     }
 
     #-------------------------------------------------------------------------------
@@ -189,35 +255,32 @@ use Data::Dumper;
         my $self = shift;
         my $key = shift;
         my $oid = shift;
-        my $type = shift;
-        my $options = shift;
-        my $factor = shift;
         my $value;
 
         $value = $self->{ session }->get_request( $oid )->{ $oid };
 
-        if ( $type eq "numeric" and $self->_isNumber( $value ) )
+        if ( $self->getByKey( 'type' ) eq "numeric" and $self->_isNumber( $value ) )
         {
-            if ( $factor )
+            if ( $self->getByKey( 'factor' ) )
             {
-                $self->{ lc( $key ) } = $value * $factor;
+                $self->setByKey( $value * $self->getByKey( $key, 'factor' ), $key, 'value' );
             }
-            elsif ( $options )
+            if ( $self->getByKey( 'status' ) )
             {
-                $self->{ lc( $key ) } = $options->{ $value };
+                $self->setByKey( $self->getByKey( $key, 'status', $value ), $key, 'value' );
             }
             else
             {
-                $self->{ lc( $key ) } = $value;
+                $self->setByKey( $value, $key, 'value' );
             }
         }
         elsif ( $type eq "string" and not $self->_isNumber( $value ) )
         {
-            $self->{ lc( $key ) } = $value;
+            $self->setByKey( $value, $key, 'value' );
         }
         else
         {
-            $self->{ lc( $key ) } = 0;
+            $self->setByKey( 0, $key, 'value' );
         }
     }
 
@@ -252,40 +315,7 @@ use Data::Dumper;
         my $self = shift;
         my $key = shift;
 
-        if ( $key =~ /discards/ or $key =~ /errors/ )
-        {
-            return "pkts";
-        }
-        elsif ( $key =~ /octets/ or $key =~ /speed/ )
-        {
-            return $self->getByKey( 'unit' );
-        }
-        elsif ( $key =~ /percent/ )
-        {
-            return "%";
-        }
-        else
-        {
-            return "";
-        }
-    }
-
-    #-------------------------------------------------------------------------------
-    #   Methode         : setUnit
-    #-------------------------------------------------------------------------------
-    #   Description     : set the unit of the object. This is only for the in- and
-    #                     outbound traffic valid.
-    #
-    #   Input           : $self         Reference to this object
-    #                     $unit         Must be on of the available units.
-    #   Output          : -             none
-    #-------------------------------------------------------------------------------
-    sub setUnit
-    {
-        my $self = shift;
-        my $unit = shift;
-
-        $self->{ unit } = $unit;
+        return $self->getByKey( $key, 'unit' )
     }
 
     #-------------------------------------------------------------------------------
@@ -303,17 +333,14 @@ use Data::Dumper;
     {
         my $self = shift;
         my $key = shift;
-        my $cnt1 = shift;
-        my $cnt2 = shift;
-        my $timegap = shift;
 
         if ( $cnt1 >= $cnt2 )
         {
-            $self->setByKey( $key, ( $cnt1 - $cnt2 ) / $timegap );
+            $self->setByKey( ( $self->getByKey( $key, 'value' ) - $self->getByKey( $key, 'oldvalue' ) ) / $self->getByKey( 'timegap' ), $self->getByKey( $key, 'value' ) );
         }
         else
         {
-            $self->setByKey( $key, ( 2**32 - ( $cnt2 - $cnt1 ) ) / $timegap );
+            $self->setByKey( ( 2**32 - ( $self->getByKey( $key, 'oldvalue' ) - $self->getByKey( $key, 'value' ) ) ) / $self->getByKey( 'timegap' ), $self->getByKey( $key, 'value' ) );
         }
     }
 
@@ -334,7 +361,7 @@ use Data::Dumper;
         my $key = shift;
         my $value = shift;
 
-        $self->{ 'l_' . $key } = $value if ( defined( $key ) );
+        $self->setByKey( $value, $key, 'oldvalue' ) if ( defined( $key ) );
     }
 
     #-------------------------------------------------------------------------------
@@ -349,13 +376,14 @@ use Data::Dumper;
     {
         my $self = shift;
         my $data = "";
+        my $key = "";
 
-        foreach ( keys %$self )
+        foreach $key ( keys %$self )
         {
-            next unless /^ifoutdiscards|^ifoutoctets|^ifindiscards|^ifouterrors|^ifinoctets|^ifinerrors/;
-            $data .= $_ . " = " . $self->{ $_ } . "\n";
+            next unless ( $self->getByKey( $key, 'storable' );
+            $data .= $key . " = " . $self->getByKey{ $key } . "\n";
         }
-        return $data
+        return $data;
     }
 
     #-------------------------------------------------------------------------------
@@ -410,8 +438,9 @@ use Data::Dumper;
         my $self = shift;
         my $key = shift;
         my $unit = shift;
+        my $speed = 0;
         my $factor = $self->_getFactor( substr( $unit, 0, -3 ) );
-        my $value = $self->getByKey( $key );
+        my $value = $self->getByKey( $key, 'value' );
 
         return 0.00 if ( $value eq 0 );
 
@@ -426,13 +455,14 @@ use Data::Dumper;
         }
         elsif ( $unit eq "%" )
         {
-            if ( $self->getByKey( 'ifspeed' ) eq 0 )
+            $speed = $self->getByKey( 'ifspeed', 'value' );
+            if ( $speed ) eq 0 )
             {
                 return 100.00;
             }
             else
             {
-                return sprintf( "%.2f", $value *  100 / $self->getByKey( 'ifspeed' ) );
+                return sprintf( "%.2f", $value *  100 / $speed );
             }
         }
         else
@@ -458,7 +488,7 @@ use Data::Dumper;
         my $self = shift;
         my $value = shift;
         my $unit = shift;
-        my $speed = $self->getByKey( 'ifspeed' );
+        my $speed = 0;
         my $factor = $self->_getFactor( substr( $unit, 0, -3 ) );
 
         if ( $unit =~ /Bps/ )
@@ -472,6 +502,7 @@ use Data::Dumper;
         }
         elsif ( $unit eq "%" )
         {
+            $speed = $self->getByKey( 'ifspeed', 'value' );
             if ( $speed eq 0 )
             {
                 return 0.00;
@@ -502,18 +533,18 @@ use Data::Dumper;
 
         print "Values for interface " . $self->getByKey( "ifdescr" ) . "\n";
         print "----------------------------------------------------------------------------------------------\n";
-        print "\tTime between measure     = " . ( ( $self->getByKey( "timegap" ) ) ? $self->getByKey( "timegap" ) : '-' ) . "\n";
-        print "\tInterface index          = " . $self->getByKey( "ifindex" ) . "\n";
-        print "\tInterface description    = " . $self->getByKey( "ifdescr" ) . "\n";
-        print "\tBandwidth                = " . $self->getByKey( "ifspeed" ) . "\n";
-        print "\tInput traffic            = " . $self->getByKey( "ifinoctets" ) . " Bits per Second\n";
-        print "\tOutput traffic           = " . $self->getByKey( "ifoutoctets" ) . " Bits per Second\n";
-        print "\tOperation status         = " . $self->getByKey( "ifoperstatus" ) . "\n";
-        print "\tAdministration status    = " . $self->getByKey( "ifadminstatus" ) . "\n";
-        print "\tInput discards           = " . $self->getByKey( "ifindiscards" ) . " Packets per Second\n";
-        print "\tOutput discards          = " . $self->getByKey( "ifoutdiscards" ) . " Packets per Second\n";
-        print "\tInput errors             = " . $self->getByKey( "ifinerrors" ) . " Packets per Second\n";
-        print "\tOutput errors            = " . $self->getByKey( "ifouterrors" ) . " Packets per Second\n";
+        print "\tTime between measure     = " . ( ( $self->getByKey( 'timegap' ) ) ? $self->getByKey( 'timegap' ) : '-' ) . "\n";
+        print "\tInterface index          = " . $self->getByKey( 'ifindex', 'value' ) . "\n";
+        print "\tInterface description    = " . $self->getByKey( 'ifdescr', 'value' ) . "\n";
+        print "\tBandwidth                = " . $self->getByKey( 'ifspeed', 'value' ) . "\n";
+        print "\tInput traffic            = " . $self->getByKey( 'ifinoctets', 'value' ) . " Bits per Second\n";
+        print "\tOutput traffic           = " . $self->getByKey( 'ifoutoctets', 'value' ) . " Bits per Second\n";
+        print "\tOperation status         = " . $self->getByKey( 'ifoperstatus', 'value' ) . "\n";
+        print "\tAdministration status    = " . $self->getByKey( 'ifadminstatus', 'value' ) . "\n";
+        print "\tInput discards           = " . $self->getByKey( 'ifindiscards', 'value' ) . " Packets per Second\n";
+        print "\tOutput discards          = " . $self->getByKey( 'ifoutdiscards', 'value' ) . " Packets per Second\n";
+        print "\tInput errors             = " . $self->getByKey( 'ifinerrors', 'value' ) . " Packets per Second\n";
+        print "\tOutput errors            = " . $self->getByKey( 'ifouterrors', 'value' ) . " Packets per Second\n";
         print "\n";
     }
 }
@@ -1163,7 +1194,7 @@ use Data::Dumper;
         my $key = shift;
         my $warning = shift;
         my $critical = shift;
-        my $labeluom = "_in_"
+        my $labeluom = "";
         my $uom = "Pkts";
         my $min = "";
         my $max = "";
@@ -1191,7 +1222,7 @@ use Data::Dumper;
 
         if ( $np->opts->suppressunit )
         {
-            $labeluom .= $uom;
+            $labeluom = "_in_" . $uom;
             $uom = "";
         }
 
