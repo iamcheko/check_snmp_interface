@@ -1163,7 +1163,7 @@ use Data::Dumper;
         my $key = shift;
         my $warning = shift;
         my $critical = shift;
-        my $labeluom = "_in_"
+        my $labeluom = "";
         my $uom = "Pkts";
         my $min = "";
         my $max = "";
@@ -1191,7 +1191,7 @@ use Data::Dumper;
 
         if ( $np->opts->suppressunit )
         {
-            $labeluom .= $uom;
+            $labeluom = "_in_" . $uom;
             $uom = "";
         }
 
