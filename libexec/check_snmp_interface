@@ -44,18 +44,20 @@ use Net::SNMP;
 use Data::Dumper;
 
 #-------------------------------------------------------------------------------
-#   Package         : InterfaceV1
+#   Package         : Interface
 #-------------------------------------------------------------------------------
 {
-    package InterfaceV1;
+    package Interface;
 
     use strict;
     use warnings;
 
+    use Data::Dumper;
+
     #-------------------------------------------------------------------------------
     #   Methode         : new
     #-------------------------------------------------------------------------------
-    #   Description     : Create a new object of type InterfaceV1.
+    #   Description     : Create a new object of type Interface.
     #
     #   Input           : $class        Reference to this class
     #                     session       Reference to Net::SNMP object
@@ -65,85 +67,10 @@ use Data::Dumper;
     sub new
     {
         my $class = shift;
-        my $self = {
-            'session'           => shift,
-            'ifindex'           => {
-                'oid'           => '.1.3.6.1.2.1.2.2.1.1',
-                'value'         => shift,
-                'type'          => "numeric",
-            },
-            'ifdescr'           => {
-                'oid'           => '.1.3.6.1.2.1.2.2.1.2',
-                'value'         => '',
-                'type'          => "string",
-            },
-            'ifspeed'           => {
-                'oid'           => '.1.3.6.1.2.1.2.2.1.5',
-                'value'         => 0,
-                'type'          => "numeric",
-            },
-            'ifadminstatus'     => {
-                'oid'           => '.1.3.6.1.2.1.2.2.1.7',
-                'value'         => 0,
-                'type'          => "numeric",
-                'status'        => { 1 => 'up', 2 => 'down', 3 => 'testing' }
-            },
-            'ifoperstatus'      => {
-                'oid'           => '.1.3.6.1.2.1.2.2.1.8',
-                'value'         => 0,
-                'type'          => "numeric",
-                'status'        => { 1 => 'up', 2 => 'down', 3 => 'testing', 
-                                     4 => 'unknown', 5 => 'dormant', 
-                                     6 => 'notpresent', 7 => 'lowerlayerdown' }
-            },
-            'ifinoctets'        => {
-                'oid'           => '.1.3.6.1.2.1.2.2.1.10',
-                'value'         => 0,
-                'oldvalue'      => 0,
-                'unit'          => "bps",
-                'type'          => "numeric",
-                'factor'        => 8
-            },
-            'ifindiscards'      => {
-                'oid'           => '.1.3.6.1.2.1.2.2.1.13',
-                'value'         => 0,
-                'oldvalue'      => 0,
-                'unit'          => "pkts",
-                'type'          => "numeric"
-            },
-            'ifinerrors'        => {
-                'oid'           => '.1.3.6.1.2.1.2.2.1.14',
-                'value'         => 0,
-                'oldvalue'      => 0,
-                'unit'          => "pkts",
-                'type'          => "numeric"
-            },
-            'ifoutoctets'       => {
-                'oid'           => '.1.3.6.1.2.1.2.2.1.16',
-                'value'         => 0,
-                'oldvalue'      => 0,
-                'unit'          => "bps",
-                'type'          => "numeric",
-                'factor'        => 8
-            },
-            'ifoutdiscards'     => {
-                'oid'           => '.1.3.6.1.2.1.2.2.1.19',
-                'value'         => 0,
-                'oldvalue'      => 0,
-                'unit'          => "pkts",
-                'type'          => "numeric"
-            },
-            'ifouterrors'       => {
-                'oid'           => '.1.3.6.1.2.1.2.2.1.20',
-                'value'         => 0,
-                'oldvalue'      => 0,
-                'unit'          => "pkts",
-                'type'          => "numeric"
-            },
-            'timegap'           => 0,
-        };
+        my $self = {};
+
         bless $self, $class;
-        $self->_init();
+        $self->_init( shift, shift );
 
         return $self;
     }
@@ -151,7 +78,7 @@ use Data::Dumper;
     #-------------------------------------------------------------------------------
     #   Methode         : _init
     #-------------------------------------------------------------------------------
-    #   Description     : Initialisation methode for class InterfaceV1.
+    #   Description     : Initialisation methode for class Interface.
     #
     #   Input           : $self         Reference to this object
     #   Output          : $self         Reference to this object
@@ -159,19 +86,98 @@ use Data::Dumper;
     sub _init
     {
         my $self = shift;
+        my $key;
 
-        $self->setKeyByOID( $self->getByKey( 'ifdescr',         'oid' ) . "." . $self->getByKey( 'ifindex' ) );
-        $self->setKeyByOID( $self->getByKey( 'ifspeed',         'oid' ) . "." . $self->getByKey( 'ifindex' ) );
-        $self->setKeyByOID( $self->getByKey( 'ifadminstatus',   'oid' ) . "." . $self->getByKey( 'ifindex' ) );
-        $self->setKeyByOID( $self->getByKey( 'ifoperstatus',    'oid' ) . "." . $self->getByKey( 'ifindex' ) );
-        $self->setKeyByOID( $self->getByKey( 'ifinoctets',      'oid' ) . "." . $self->getByKey( 'ifindex' ) );
-        $self->setKeyByOID( $self->getByKey( 'ifindiscards',    'oid' ) . "." . $self->getByKey( 'ifindex' ) );
-        $self->setKeyByOID( $self->getByKey( 'ifinerrors',      'oid' ) . "." . $self->getByKey( 'ifindex' ) );
-        $self->setKeyByOID( $self->getByKey( 'ifoutoctets',     'oid' ) . "." . $self->getByKey( 'ifindex' ) );
-        $self->setKeyByOID( $self->getByKey( 'ifoutdiscards',   'oid' ) . "." . $self->getByKey( 'ifindex' ) );
-        $self->setKeyByOID( $self->getByKey( 'ifouterrors',     'oid' ) . "." . $self->getByKey( 'ifindex' ) );
+        $self->{ 'session' } = shift;
+        $self->{ 'timegap' } = {
+            'value'                     => time(),
+            'oldvalue'                  => 0,
+            'gap'                       => 0,
+            'storable'                  => 1
+        };
+        $self->{ 'ifindex' } = {
+            'oid'                       => '.1.3.6.1.2.1.2.2.1.1',
+            'value'                     => shift,
+            'type'                      => "numeric"
+        };
+        $self->{'ifdescr' } = {
+            'oid'                       => '.1.3.6.1.2.1.2.2.1.2',
+            'value'                     => '',
+            'type'                      => "string"
+        };
+        $self->{ 'ifadminstatus' } = {
+            'oid'                       => '.1.3.6.1.2.1.2.2.1.7',
+            'value'                     => 0,
+            'type'                      => "numeric",
+            'status'                    => {
+                                                1 => 'up',
+                                                2 => 'down',
+                                                3 => 'testing'
+                                            }
+        };
+        $self->{ 'ifoperstatus' } = {
+            'oid'                       => '.1.3.6.1.2.1.2.2.1.8',
+            'value'                     => 0,
+            'type'                      => "numeric",
+            'status'                    => {
+                                                1 => 'up',
+                                                2 => 'down',
+                                                3 => 'testing',
+                                                4 => 'unknown',
+                                                5 => 'dormant',
+                                                6 => 'notpresent',
+                                                7 => 'lowerlayerdown'
+                                            }
+        };
+        $self->{ 'ifindiscards' } = {
+            'oid'                       => '.1.3.6.1.2.1.2.2.1.13',
+            'value'                     => 0,
+            'oldvalue'                  => 0,
+            'unit'                      => "pkts",
+            'type'                      => "numeric",
+            'storable'                  => 1
+        };
+        $self->{ 'ifinerrors' } = {
+            'oid'                       => '.1.3.6.1.2.1.2.2.1.14',
+            'value'                     => 0,
+            'oldvalue'                  => 0,
+            'unit'                      => "pkts",
+            'type'                      => "numeric",
+            'storable'                  => 1
+        };
+        $self->{ 'ifoutdiscards' } = {
+            'oid'                       => '.1.3.6.1.2.1.2.2.1.19',
+            'value'                     => 0,
+            'oldvalue'                  => 0,
+            'unit'                      => "pkts",
+            'type'                      => "numeric",
+            'storable'                  => 1
+        };
+        $self->{ 'ifouterrors' } = {
+            'oid'                       => '.1.3.6.1.2.1.2.2.1.20',
+            'value'                     => 0,
+            'oldvalue'                  => 0,
+            'unit'                      => "pkts",
+            'type'                      => "numeric",
+            'storable'                  => 1
+        };
 
         return $self;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : setGap
+    #-------------------------------------------------------------------------------
+    #   Description     : Calculate the gap between the first and the last measure.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub setGap
+    {
+        my $self = shift;
+
+        $self->setByKey( $self->getByKey( 'timegap', 'value' ) - $self->getByKey( 'timegap', 'oldvalue' ), 'timegap', 'gap' );
     }
 
     #-------------------------------------------------------------------------------
@@ -259,13 +265,13 @@ use Data::Dumper;
 
         $value = $self->{ session }->get_request( $oid )->{ $oid };
 
-        if ( $self->getByKey( 'type' ) eq "numeric" and $self->_isNumber( $value ) )
+        if ( $self->getByKey( $key, 'type' ) eq "numeric" and $self->_isNumber( $value ) )
         {
-            if ( $self->getByKey( 'factor' ) )
+            if ( $self->getByKey( $key, 'factor' ) )
             {
                 $self->setByKey( $value * $self->getByKey( $key, 'factor' ), $key, 'value' );
             }
-            if ( $self->getByKey( 'status' ) )
+            elsif ( $self->getByKey( $key, 'status' ) )
             {
                 $self->setByKey( $self->getByKey( $key, 'status', $value ), $key, 'value' );
             }
@@ -274,7 +280,7 @@ use Data::Dumper;
                 $self->setByKey( $value, $key, 'value' );
             }
         }
-        elsif ( $type eq "string" and not $self->_isNumber( $value ) )
+        elsif ( $self->getByKey( $key, 'type' ) eq "string" and not $self->_isNumber( $value ) )
         {
             $self->setByKey( $value, $key, 'value' );
         }
@@ -282,40 +288,6 @@ use Data::Dumper;
         {
             $self->setByKey( 0, $key, 'value' );
         }
-    }
-
-    #-------------------------------------------------------------------------------
-    #   Methode         : setTimeGap
-    #-------------------------------------------------------------------------------
-    #   Description     : Set the time gap between measures.
-    #
-    #   Input           : $self         Reference to this object
-    #                     $timegap      The time in seconds to set
-    #   Output          : -             none
-    #-------------------------------------------------------------------------------
-    sub setTimeGap
-    {
-        my $self = shift;
-        my $timegap = shift;
-
-        $self->{ timegap } = $timegap;
-    }
-
-    #-------------------------------------------------------------------------------
-    #   Methode         : getUnitByKey
-    #-------------------------------------------------------------------------------
-    #   Description     : Get the unit of a key.
-    #
-    #   Input           : $self         Reference to this object
-    #                     $key          The key of the needed unit
-    #   Output          : $unit         The unit of the key
-    #-------------------------------------------------------------------------------
-    sub getUnitByKey
-    {
-        my $self = shift;
-        my $key = shift;
-
-        return $self->getByKey( $key, 'unit' )
     }
 
     #-------------------------------------------------------------------------------
@@ -333,21 +305,22 @@ use Data::Dumper;
     {
         my $self = shift;
         my $key = shift;
+        my $cntsize = shift;
 
-        if ( $cnt1 >= $cnt2 )
+        if ( $self->getByKey( $key, 'value' ) >= $self->getByKey( $key, 'oldvalue' ) )
         {
-            $self->setByKey( ( $self->getByKey( $key, 'value' ) - $self->getByKey( $key, 'oldvalue' ) ) / $self->getByKey( 'timegap' ), $self->getByKey( $key, 'value' ) );
+            $self->setByKey( ( $self->getByKey( $key, 'value' ) - $self->getByKey( $key, 'oldvalue' ) ) / $self->getByKey( 'timegap', 'gap' ), $self->getByKey( $key, 'value' ) );
         }
         else
         {
-            $self->setByKey( ( 2**32 - ( $self->getByKey( $key, 'oldvalue' ) - $self->getByKey( $key, 'value' ) ) ) / $self->getByKey( 'timegap' ), $self->getByKey( $key, 'value' ) );
+            $self->setByKey( ( $cntsize - ( $self->getByKey( $key, 'oldvalue' ) - $self->getByKey( $key, 'value' ) ) ) / $self->getByKey( 'timegap', 'gap' ), $self->getByKey( $key, 'value' ) );
         }
     }
 
     #-------------------------------------------------------------------------------
     #   Methode         : setFileData
     #-------------------------------------------------------------------------------
-    #   Description     : Create temporary hash entries for the data stored in the
+    #   Description     : Create hash entries for the data stored in the
     #                     file.
     #
     #   Input           : $self         Reference to this object
@@ -361,7 +334,15 @@ use Data::Dumper;
         my $key = shift;
         my $value = shift;
 
-        $self->setByKey( $value, $key, 'oldvalue' ) if ( defined( $key ) );
+        if ( defined( $key ) )
+        {
+            $self->setByKey( $value, $key, 'oldvalue' );
+        }
+        else
+        {
+            print "Not defined key " . $key . "\n";
+        }
+        # $self->setByKey( $value, $key, 'oldvalue' ) if ( $key );
     }
 
     #-------------------------------------------------------------------------------
@@ -380,8 +361,8 @@ use Data::Dumper;
 
         foreach $key ( keys %$self )
         {
-            next unless ( $self->getByKey( $key, 'storable' );
-            $data .= $key . " = " . $self->getByKey{ $key } . "\n";
+            next unless ( $self->getByKey( $key, 'storable' ) );
+            $data .= $key . " = " . $self->getByKey( $key, 'value' ) . "\n";
         }
         return $data;
     }
@@ -437,7 +418,7 @@ use Data::Dumper;
     {
         my $self = shift;
         my $key = shift;
-        my $unit = shift;
+        my $unit = $self->getByKey( $key, 'unit' );
         my $speed = 0;
         my $factor = $self->_getFactor( substr( $unit, 0, -3 ) );
         my $value = $self->getByKey( $key, 'value' );
@@ -456,7 +437,7 @@ use Data::Dumper;
         elsif ( $unit eq "%" )
         {
             $speed = $self->getByKey( 'ifspeed', 'value' );
-            if ( $speed ) eq 0 )
+            if ( $speed eq 0 )
             {
                 return 100.00;
             }
@@ -517,6 +498,104 @@ use Data::Dumper;
             return sprintf( "%.2f", $value );
         }
     }
+}
+
+#-------------------------------------------------------------------------------
+#   Package         : InterfaceV1
+#-------------------------------------------------------------------------------
+{
+    package InterfaceV1;
+
+    use parent -norequire, 'Interface';
+    use strict;
+    use warnings;
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : new
+    #-------------------------------------------------------------------------------
+    #   Description     : Create a new object of type InterfaceV1.
+    #
+    #   Input           : $class        Reference to this class
+    #                     session       Reference to Net::SNMP object
+    #                     ifindex       the SNMP index of the interface
+    #   Output          : $self         The reference to this object
+    #-------------------------------------------------------------------------------
+    sub new
+    {
+        my $class = shift;
+        my $self = {};
+
+        bless $self, $class;
+        $self->SUPER::_init( shift, shift );
+        $self->_init();
+
+        return $self;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : _init
+    #-------------------------------------------------------------------------------
+    #   Description     : Initialisation methode for class InterfaceV1.
+    #
+    #   Input           : $self         Reference to this object
+    #   Output          : $self         Reference to this object
+    #-------------------------------------------------------------------------------
+    sub _init
+    {
+        my $self = shift;
+        my $key;
+
+        $self->{ 'ifspeed' } = {
+            'oid'                       => '.1.3.6.1.2.1.2.2.1.5',
+            'value'                     => 0,
+            'type'                      => "numeric"
+        };
+        $self->{ 'ifinoctets' } = {
+            'oid'                       => '.1.3.6.1.2.1.2.2.1.10',
+            'value'                     => 0,
+            'oldvalue'                  => 0,
+            'unit'                      => "bps",
+            'type'                      => "numeric",
+            'factor'                    => 8,
+            'storable'                  => 1
+        };
+        $self->{ 'ifoutoctets' } = {
+            'oid'                       => '.1.3.6.1.2.1.2.2.1.16',
+            'value'                     => 0,
+            'oldvalue'                  => 0,
+            'unit'                      => "bps",
+            'type'                      => "numeric",
+            'factor'                    => 8,
+            'storable'                  => 1
+        };
+
+        foreach $key ( keys %$self )
+        {
+            next unless ( $key =~ /^if/ );
+            $self->setKeyByOID( $key, $self->getByKey( $key, 'oid' ) . "." . $self->getByKey( 'ifindex', 'value' ) );
+        }
+
+        return $self;
+    }
+
+    #-------------------------------------------------------------------------------
+    #   Methode         : setDiffByKey
+    #-------------------------------------------------------------------------------
+    #   Description     : Set the diference between to measures for a given key.
+    #
+    #   Input           : $self         Reference to this object
+    #                     $key          The key of the object variable to be set
+    #                     $cnt1         The last measured counter
+    #                     $cnt2         The counter measured before
+    #   Output          : -             none
+    #-------------------------------------------------------------------------------
+    sub setDiffByKey
+    {
+        my $self = shift;
+        my $key = shift;
+
+        $self->SUPER::setDiffByKey( $key, 2**32 )
+    }
 
     #-------------------------------------------------------------------------------
     #   Methode         : printAll
@@ -533,7 +612,7 @@ use Data::Dumper;
 
         print "Values for interface " . $self->getByKey( "ifdescr" ) . "\n";
         print "----------------------------------------------------------------------------------------------\n";
-        print "\tTime between measure     = " . ( ( $self->getByKey( 'timegap' ) ) ? $self->getByKey( 'timegap' ) : '-' ) . "\n";
+        print "\tTime between measure     = " . ( ( $self->getByKey( 'timegap', 'gap' ) ) ? $self->getByKey( 'timegap', 'gap' ) : '-' ) . "\n";
         print "\tInterface index          = " . $self->getByKey( 'ifindex', 'value' ) . "\n";
         print "\tInterface description    = " . $self->getByKey( 'ifdescr', 'value' ) . "\n";
         print "\tBandwidth                = " . $self->getByKey( 'ifspeed', 'value' ) . "\n";
@@ -555,9 +634,10 @@ use Data::Dumper;
 {
     package InterfaceV2;
 
-    use parent -norequire, 'InterfaceV1';
+    use parent -norequire, 'Interface';
     use strict;
     use warnings;
+
 
     #-------------------------------------------------------------------------------
     #   Methode         : new
@@ -572,19 +652,10 @@ use Data::Dumper;
     sub new
     {
         my $class = shift;
-        my $self = {
-            'session'                       => shift,
-            'ifindex'                       => shift,
-            'ifpromiscuousmode'             => 0,
-            'ifinoctets'                    => 0,
-            'ifname'                        => '',
-            'ifoutoctets'                   => 0,
-            'ifalias'                       => '',
-            'l_ifinoctets'                  => 0,
-            'l_ifoutoctets'                 => 0
-        };
+        my $self = {};
+
         bless $self, $class;
-        $self->SUPER::_init();
+        $self->SUPER::_init( shift, shift );
         $self->_init();
 
         return $self;
@@ -593,7 +664,7 @@ use Data::Dumper;
     #-------------------------------------------------------------------------------
     #   Methode         : _init
     #-------------------------------------------------------------------------------
-    #   Description     : Initialisation methode for class InterfaceV1.
+    #   Description     : Initialisation methode for class InterfaceV2.
     #
     #   Input           : $self         Reference to this object
     #   Output          : $self         Reference to this object
@@ -601,13 +672,57 @@ use Data::Dumper;
     sub _init
     {
         my $self = shift;
+        my $key;
 
-        $self->setKeyByOID( 'ifname',            '.1.3.6.1.2.1.31.1.1.1.1'  . "." . $self->getByKey( "ifindex" ), "string" );
-        $self->setKeyByOID( 'ifinoctets',        '.1.3.6.1.2.1.31.1.1.1.6'  . "." . $self->getByKey( "ifindex" ), "numeric", {}, 8 );
-        $self->setKeyByOID( 'ifoutoctets',       '.1.3.6.1.2.1.31.1.1.1.10' . "." . $self->getByKey( "ifindex" ), "numeric", {}, 8 );
-        $self->setKeyByOID( 'ifspeed',           '.1.3.6.1.2.1.31.1.1.1.15' . "." . $self->getByKey( "ifindex" ), "numeric", {}, ( 10 ** 6 ) );
-        $self->setKeyByOID( 'ifpromiscuousmode', '.1.3.6.1.2.1.31.1.1.1.16' . "." . $self->getByKey( "ifindex" ), "numeric", { 1 => 'on', 2 => 'off' } );
-        $self->setKeyByOID( 'ifalias',           '.1.3.6.1.2.1.31.1.1.1.18' . "." . $self->getByKey( "ifindex" ), "string" );
+        $self->{ 'ifname' } = {
+            'oid'                       => '.1.3.6.1.2.1.31.1.1.1.1',
+            'value'                     => '',
+            'type'                      => "string"
+        };
+        $self->{ 'ifinoctets' } = {
+            'oid'                       => '.1.3.6.1.2.1.31.1.1.1.6',
+            'value'                     => 0,
+            'oldvalue'                  => 0,
+            'unit'                      => "bps",
+            'type'                      => "numeric",
+            'factor'                    => 8,
+            'storable'                  => 1
+        };
+        $self->{ 'ifoutoctets' } = {
+            'oid'                       => '.1.3.6.1.2.1.31.1.1.1.10',
+            'value'                     => 0,
+            'oldvalue'                  => 0,
+            'unit'                      => "bps",
+            'type'                      => "numeric",
+            'factor'                    => 8,
+            'storable'                  => 1
+        };
+        $self->{ 'ifspeed' } = {
+            'oid'                       => '.1.3.6.1.2.1.31.1.1.1.15',
+            'value'                     => 0,
+            'type'                      => "numeric",
+            'factor'                    => 10**6
+        };
+        $self->{ 'ifpromiscuousmode' } = {
+            'oid'                       => '.1.3.6.1.2.1.31.1.1.1.16',
+            'value'                     => 0,
+            'type'                      => "numeric",
+            'status'                    => {
+                                                1 => 'on',
+                                                2 => 'off'
+                                           }
+        };
+        $self->{ 'ifalias' } = {
+            'oid'                       => '.1.3.6.1.2.1.31.1.1.1.18',
+            'value'                     => '',
+            'type'                      => "string",
+        };
+
+        foreach $key ( keys %$self )
+        {
+            next unless ( $key =~ /^if/ );
+            $self->setKeyByOID( $key, $self->getByKey( $key, 'oid' ) . "." . $self->getByKey( 'ifindex', 'value' ) );
+        }
 
         return $self;
     }
@@ -627,18 +742,8 @@ use Data::Dumper;
     {
         my $self = shift;
         my $key = shift;
-        my $cnt1 = shift;
-        my $cnt2 = shift;
-        my $timegap = shift;
 
-        if ( $cnt1 >= $cnt2 )
-        {
-            $self->setByKey( $key, ( $cnt1 - $cnt2 ) / $timegap );
-        }
-        else
-        {
-            $self->setByKey( $key, ( 2**64 - ( $cnt2 - $cnt1 ) ) / $timegap );
-        }
+        $self->SUPER::setDiffByKey( $key, 2**64 )
     }
 
     #-------------------------------------------------------------------------------
@@ -655,23 +760,23 @@ use Data::Dumper;
         my $self = shift;
         my $unit = shift;
 
-        print "Values for interface " . $self->getByKey( "ifdescr" ) . "\n";
+        print "Values for interface " . $self->getByKey( 'ifdescr', 'value' ) . "\n";
         print "----------------------------------------------------------------------------------------------\n";
-        print "\tTime between measure     = " . ( ( $self->getByKey( "timegap" ) ) ? $self->getByKey( "timegap" ) : '-' ) . "\n";
-        print "\tInterface index          = " . $self->getByKey( "ifindex" ) . "\n";
-        print "\tInterface name           = " . $self->getByKey( "ifname" ) . "\n";
-        print "\tInterface description    = " . $self->getByKey( "ifdescr" ) . "\n";
-        print "\tInterface alias          = " . $self->getByKey( "ifalias" ) . "\n";
-        print "\tInput traffic            = " . $self->getByKey( "ifinoctets" ) . " Bits per Second\n";
-        print "\tOutput traffic           = " . $self->getByKey( "ifoutoctets" ) . " Bits per Second\n";
-        print "\tOperation status         = " . $self->getByKey( "ifoperstatus" ) . "\n";
-        print "\tAdministration status    = " . $self->getByKey( "ifadminstatus" ) . "\n";
-        print "\tInput discards           = " . $self->getByKey( "ifindiscards" ) . " Packets per Second\n";
-        print "\tOutput discards          = " . $self->getByKey( "ifoutdiscards" ) . " Packets per Second\n";
-        print "\tInput errors             = " . $self->getByKey( "ifinerrors" ) . " Packets per Second\n";
-        print "\tOutput errors            = " . $self->getByKey( "ifouterrors" ) . " Packets per Second\n";
-        print "\tPromiscuous mode         = " . $self->getByKey( "ifpromiscuousmode" ) . "\n";
-        print "\tBandwidth                = " . $self->getByKey( "ifspeed" ) . "\n";
+        print "\tTime between measure     = " . ( ( $self->getByKey( 'timegap', 'gap' ) ) ? $self->getByKey( 'timegap', 'gap' ) : '-' ) . "\n";
+        print "\tInterface index          = " . $self->getByKey( 'ifindex', 'value' ) . "\n";
+        print "\tInterface name           = " . $self->getByKey( 'ifname', 'value' ) . "\n";
+        print "\tInterface description    = " . $self->getByKey( 'ifdescr', 'value' ) . "\n";
+        print "\tInterface alias          = " . $self->getByKey( 'ifalias', 'value' ) . "\n";
+        print "\tInput traffic            = " . $self->getByKey( 'ifinoctets', 'value' ) . " Bits per Second\n";
+        print "\tOutput traffic           = " . $self->getByKey( 'ifoutoctets', 'value' ) . " Bits per Second\n";
+        print "\tOperation status         = " . $self->getByKey( 'ifoperstatus', 'value' ) . "\n";
+        print "\tAdministration status    = " . $self->getByKey( 'ifadminstatus', 'value' ) . "\n";
+        print "\tInput discards           = " . $self->getByKey( 'ifindiscards', 'value' ) . " Packets per Second\n";
+        print "\tOutput discards          = " . $self->getByKey( 'ifoutdiscards', 'value' ) . " Packets per Second\n";
+        print "\tInput errors             = " . $self->getByKey( 'ifinerrors', 'value' ) . " Packets per Second\n";
+        print "\tOutput errors            = " . $self->getByKey( 'ifouterrors', 'value' ) . " Packets per Second\n";
+        print "\tPromiscuous mode         = " . $self->getByKey( 'ifpromiscuousmode', 'value' ) . "\n";
+        print "\tBandwidth                = " . $self->getByKey( 'ifspeed', 'value' ) . "\n";
         print "\n";
     }
 }
@@ -829,7 +934,6 @@ use Data::Dumper;
         my $self = shift;
         my $np = shift;
         my $if = shift;
-        my $gap = shift;
         my $file = "";
         my $iffn = $if;
 
@@ -838,7 +942,6 @@ use Data::Dumper;
         $file =~ s/__IF__/$iffn/g;
 
         open( FILE, ">", $file ) or $np->nagios_die( "cant open file $file for writing" );
-        print FILE "gap = " . $gap->{ 'ts_new' } . "\n";
         print FILE $self->{ interfaces }->{ $if }->getFileData();
         close( FILE );
     }
@@ -860,7 +963,6 @@ use Data::Dumper;
         my $self = shift;
         my $np = shift;
         my $if = shift;
-        my $gap = shift;
         my $file = "";
         my $iffn = $if;
 
@@ -876,16 +978,10 @@ use Data::Dumper;
             {
                 chomp;
                 my ( $key, $value ) = split( '\s+=\s+', $_ );
-                if ( defined( $key ) and $key eq "gap" )
-                {
-                    $gap->{ 'ts_gap' } = $gap->{ 'ts_new' } - $value;
-                }
-                else
-                {
-                    $self->{ interfaces }->{ $if }->setFileData( $key, $value );
-                }
+                $self->{ interfaces }->{ $if }->setFileData( $key, $value );
             }
             close( FILE );
+            $self->{ interfaces }->{ $if }->setGap();
             return 1;
         }
         return 0;
@@ -921,7 +1017,6 @@ use Data::Dumper;
 
             if ( $refif->{ $key } )
             {
-                $refif->setTimeGap( $gap->{ ts_gap } );
                 $refif->setDiffByKey( $key, $refif->{ $key }, $refif->{ $_ }, $gap->{ ts_gap } );
                 delete $refif->{ $_ };
             }
@@ -1066,7 +1161,6 @@ use Data::Dumper;
 {
     package main;
 
-
     #---------------------------------------------------------------------------
     #                     Global Variables
     #---------------------------------------------------------------------------
@@ -1195,22 +1289,21 @@ use Data::Dumper;
         my $warning = shift;
         my $critical = shift;
         my $labeluom = "";
-        my $uom = "Pkts";
+        my $uom = $if->getByKey( $key, 'unit' );
         my $min = "";
         my $max = "";
 
         if ( $key =~ /octets/ )
         {
-            $uom = "bps";
             $min = 0;
-            $max = $if->getByKey( 'ifspeed' );
+            $max = $if->getByKey( 'ifspeed', 'value' );
         }
 
         if ( $warning ne "none" and $critical ne "none" )
         {
-            $warning = $if->unitTo( $warning, $if->getUnitByKey( $key ) );
-            $critical = $if->unitTo( $critical, $if->getUnitByKey( $key ) );
-            $thdoptions->{ 'check' }    = $if->getByKey( $key );
+            $warning = $if->unitTo( $warning, $if->getByKey( $key, 'unit' ) );
+            $critical = $if->unitTo( $critical, $if->getByKey( $key, 'unit' ) );
+            $thdoptions->{ 'check' }    = $if->getByKey( $key, 'value' );
             $thdoptions->{ 'warning' }  = $warning;
             $thdoptions->{ 'critical' } = $critical;
         }
@@ -1226,8 +1319,8 @@ use Data::Dumper;
             $uom = "";
         }
 
-        $prfdtptions->{ 'label' }       = "'" . $if->getByKey( lc( $np->opts->field ) ) . "_" . $key . $labeluom . "'";
-        $prfdtptions->{ 'value' }       = $if->unitTo( $if->getByKey( $key ), $uom );
+        $prfdtptions->{ 'label' }       = "'" . $if->getByKey( lc( $np->opts->field ), 'value' ) . "_" . $key . $labeluom . "'";
+        $prfdtptions->{ 'value' }       = $if->unitTo( $if->getByKey( $key, 'value' ), $uom );
         $prfdtptions->{ 'uom' }         = $uom;
         $prfdtptions->{ 'warning' }     = $warning;
         $prfdtptions->{ 'critical' }    = $critical;
@@ -1255,14 +1348,13 @@ use Data::Dumper;
         my @critical = split(",", $np->opts->critical) if ( $np->opts->critical );
         my @label = split(",", $np->opts->label) if ( $np->opts->label );
         my @alias = split(",", $np->opts->alias) if ( $np->opts->alias );
-        my $interface = $if->getByKey( lc( $np->opts->field ) );
+        my $interface = $if->getByKey( lc( $np->opts->field ), 'value' );
         my $ret = 0;
         my $r;
         my $string = "";
 
         return ( 1, $interface . " parameters do not align. " ) if ( scalar @fields ne scalar @warning or scalar @fields ne scalar @critical );
 
-        $if->setUnit( $np->opts->unit );
         for ( my $i = 0; $i < scalar @fields; $i++ )
         {
             my $thresholdoptions = {};
@@ -1285,7 +1377,7 @@ use Data::Dumper;
         {
             my $a = $alias[ $i ] ? $alias[ $i ] : $label[ $i ];
 
-            $string .= sprintf( " %s=%3.2f%s ", $a, $if->toUnit( $label[ $i ], $if->getUnitByKey( $label[ $i ] ) ), $if->getUnitByKey( $label[ $i ] ) );
+            $string .= sprintf( " %s=%3.2f%s ", $a, $if->toUnit( $label[ $i ] ), $if->getByKey( $label[ $i ], 'unit' ) );
         }
 
         return $ret, $interface . $string;
@@ -1342,13 +1434,13 @@ use Data::Dumper;
         my $return = 0;
         my $r;
 
-        $return = checkFlag( 'A', $if->getByKey( 'ifadminstatus' ), $np->opts->adminstat, $string );
-        $r = checkFlag( 'O', $if->getByKey( 'ifoperstatus' ), $np->opts->operstat, $string );
+        $return = checkFlag( 'A', $if->getByKey( 'ifadminstatus', 'value' ), $np->opts->adminstat, $string );
+        $r = checkFlag( 'O', $if->getByKey( 'ifoperstatus', 'value' ), $np->opts->operstat, $string );
         $return = ( $r gt $return ) ? $r : $return;
 
         if ( $np->opts->snmpversion > 1 )
         {
-            $r = $return = checkFlag( 'P', $if->getByKey( 'ifpromiscuousmode' ), $np->opts->promiscuous, $string );
+            $r = $return = checkFlag( 'P', $if->getByKey( 'ifpromiscuousmode', 'value' ), $np->opts->promiscuous, $string );
             $return = ( $r gt $return ) ? $r : $return;
         }
         return $return;
@@ -1473,7 +1565,7 @@ use Data::Dumper;
     $np->add_arg(
         spec        => 'field|f=s',
         help        => "One of ifName, ifDescr, or ifAlias",
-        default     => 'ifDescr'
+        default     => 'ifName'
     );
 
     $np->add_arg(
@@ -1520,22 +1612,20 @@ use Data::Dumper;
     # read the cli options
     $np->getopts;
 
-    $gap->{ 'ts_new' } = time();
-
     # create a SNMP connection to the node
     $snmp = createSnmpSession( $np );
 
     # collect the interface informations and store them in a hash
     $ifobject = getIfObject( $np, $snmp );
-    print Dumper( "Interface objects:\n", $ifobject ) if ( $np->opts->verbose );
 
     foreach my $if ( sort @{ $ifobject->getNames() } )
     {
         # get data from last check
-        my $file_exist = $ifobject->readData( $np, $if, $gap );
+        my $file_exist = $ifobject->readData( $np, $if );
 
         # store data from this check
-        $ifobject->writeData( $np, $if, $gap );
+        $ifobject->writeData( $np, $if );
+        print Dumper( $ifobject ) if ( $np->opts->verbose );
 
         if ( $file_exist )
         {
