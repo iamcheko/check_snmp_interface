@@ -307,13 +307,13 @@ use Data::Dumper;
         my $key = shift;
         my $cntsize = shift;
 
-        if ( $self->getByKey( $key, 'value' ) >= $self->getByKey( $key, 'oldvalue' ) )
+        if ( $self->getByKey( $key, 'value' ) ge $self->getByKey( $key, 'oldvalue' ) )
         {
-            $self->setByKey( ( $self->getByKey( $key, 'value' ) - $self->getByKey( $key, 'oldvalue' ) ) / $self->getByKey( 'timegap', 'gap' ), $self->getByKey( $key, 'value' ) );
+            $self->setByKey( ( $self->getByKey( $key, 'value' ) - $self->getByKey( $key, 'oldvalue' ) ) / $self->getByKey( 'timegap', 'gap' ), $key, 'value' );
         }
         else
         {
-            $self->setByKey( ( $cntsize - ( $self->getByKey( $key, 'oldvalue' ) - $self->getByKey( $key, 'value' ) ) ) / $self->getByKey( 'timegap', 'gap' ), $self->getByKey( $key, 'value' ) );
+            $self->setByKey( ( 8 * $cntsize - ( $self->getByKey( $key, 'oldvalue' ) - $self->getByKey( $key, 'value' ) ) ) / $self->getByKey( 'timegap', 'gap' ), $key, 'value' );
         }
     }
 
@@ -389,7 +389,7 @@ use Data::Dumper;
     {
         my $self = shift;
         my $prefix = shift;
-        my $up = { 'k' => 1, 'M' => 2, 'G' => 3, 'T' => 4, 'P' => 5, 'Z' => 6, 'Y' => 7 };
+        my $up = { 'k' => 1, 'M' => 2, 'G' => 3, 'T' => 4, 'P' => 5, 'E' => 6, 'Z' => 7, 'Y' => 8 };
 
         if ( $prefix )
         {
@@ -421,9 +421,10 @@ use Data::Dumper;
         my $unit = shift;
         my $autoconvert = shift;
         my $value = $self->getByKey( $key, 'value' );
-        my $up = { 0 => '', 1 => 'k', 2 => 'M', 3 => 'G', 4 => 'T', 5 => 'P', 6 => 'Z', 7 => 'Y' };
+        my $up = { 0 => '', 1 => 'k', 2 => 'M', 3 => 'G', 4 => 'T', 5 => 'P', 6 => 'E', 7 => 'Z', 8 => 'Y' };
 
-        return 0.00 if ( $value eq 0 );
+        $unit = $self->getByKey( $key, 'unit' ) if ( $self->getByKey( $key, 'unit' ) eq 'pkts' );
+        return ( 0.00, $unit ) if ( $value eq 0 );
 
         if ( $unit =~ /Bps/ )
         {
@@ -432,7 +433,7 @@ use Data::Dumper;
         
         if ( $unit =~ /bps|Bps/ )
         {
-            $unit = $up->{ int( length( $value ) / 3 ) } . substr( $unit, -3, 3 ) if ( $autoconvert );
+            $unit = $up->{ int( length( int( $value ) ) / 3 ) } . substr( $unit, -3, 3 ) if ( $autoconvert );
             return ( sprintf( "%.2f", $value / $self->_getFactor( substr( $unit, 0, -3 ) ) ), $unit );
         }
         elsif ( $unit eq "%" )
@@ -1003,21 +1004,16 @@ use Data::Dumper;
         my $self = shift;
         my $np = shift;
         my $if = shift;
-        my $gap = shift;
         my $refif;
 
         $refif = $self->getRefByName( $if );
-        foreach ( keys %{ $refif } )
+        foreach my $key ( keys %{ $refif } )
         {
-            my $key;
-
-            next unless /^l_if/;
-            $key = substr( $_, 2 );
+            next unless $refif->getByKey( $key, 'oldvalue' );;
 
             if ( $refif->{ $key } )
             {
-                $refif->setDiffByKey( $key, $refif->{ $key }, $refif->{ $_ }, $gap->{ ts_gap } );
-                delete $refif->{ $_ };
+                $refif->setDiffByKey( $key );
             }
         }
     }
