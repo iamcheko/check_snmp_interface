@@ -8,13 +8,11 @@
 #   Beschreibung    : PNP Graph Template fuer check_snmp_interface
 #
 #   Author          : Marek Zavesicky
-#   Version         : $Revision: $
+#   Version         : 0.1.2
 #   Erstellt        : 2016/01/18
-#   Letztes Update  : $Date: $
+#   Letztes Update  : 2016/12/01
 #
-#   $Id: $
-#   Change history  :
-#                     $Log: $
+#   Change history  : See "git log"
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------

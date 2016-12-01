@@ -10,13 +10,11 @@
 #
 #   Autor           : Marek Zavesicky
 #   Copyright (C)   : (2015-2016) Marek Zavesicky
-#   Version         : $Revision: $
+#   Version         : 0.1.2
 #   Erstellt        : 2015/10/22
-#   Letztes Update  : $Date: $
+#   Letztes Update  : 2016/12/01
 #
-#   $Id: $
-#   Change history  :
-#                     $Log: $
+#   Change history  : See "git log"
 #
 #   This program is free software; you can redistribute it and/or modify it
 #   under the terms of the GNU General Public License as published by the
@@ -1159,7 +1157,7 @@ use Data::Dumper;
     #---------------------------------------------------------------------------
     my $NAME = "check_snmp_interface";
     my $SHORTNAME = "Network Interface";
-    my $VERSION = "0.1.1";
+    my $VERSION = "0.1.2";
     my $LICENSE = "GNU v2 or later, see <http://www.fsf.org/copyleft/gpl.txt>";
 
     #---------------------------------------------------------------------------
