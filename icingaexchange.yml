@@ -8,8 +8,8 @@ type: Plugin
 license: gplv2
 releases: 
   - 
-    name: 0.1.1
-    description: "0.1.1 Release"
+    name: 0.1.2
+    description: "0.1.2 Release"
     files: 
       - 
         name: check_snmp_interface
