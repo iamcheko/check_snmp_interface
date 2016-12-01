@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w --
+#!/usr/bin/env perl
 #------------------------------------------------------------------------------
 #
 #   Programm        : check_snmp_interface
@@ -38,7 +38,6 @@ use warnings;
 #-------------------------------------------------------------------------------
 #                     Used Modules
 #-------------------------------------------------------------------------------
-use lib qw( /usr/local/nrpe/perl/lib );
 use Monitoring::Plugin;
 use Net::SNMP;
 use Data::Dumper;
@@ -313,7 +312,7 @@ use Data::Dumper;
         }
         else
         {
-            $self->setByKey( ( 8 * $cntsize - ( $self->getByKey( $key, 'oldvalue' ) - $self->getByKey( $key, 'value' ) ) ) / $self->getByKey( 'timegap', 'gap' ), $key, 'value' );
+            $self->setByKey( 0, $key, 'value' );
         }
     }
 
@@ -342,7 +341,6 @@ use Data::Dumper;
         {
             print "Not defined key " . $key . "\n";
         }
-        # $self->setByKey( $value, $key, 'oldvalue' ) if ( $key );
     }
 
     #-------------------------------------------------------------------------------
@@ -430,7 +428,7 @@ use Data::Dumper;
         {
             $value /= 8;
         }
-        
+
         if ( $unit =~ /bps|Bps/ )
         {
             $unit = $up->{ int( length( int( $value ) ) / 3 ) } . substr( $unit, -3, 3 ) if ( $autoconvert );
@@ -1368,7 +1366,7 @@ use Data::Dumper;
         }
 
         # Generate the status string
-        $r .= checkFlags( $np, $if, \$string );
+        $r = checkFlags( $np, $if, \$string );
         $ret = $r if ( $ret lt $r );
         for ( my $i = 0; $i lt scalar @label; $i++ )
         {
@@ -1434,12 +1432,12 @@ use Data::Dumper;
 
         $return = checkFlag( 'A', $if->getByKey( 'ifadminstatus', 'value' ), $np->opts->adminstat, $string );
         $r = checkFlag( 'O', $if->getByKey( 'ifoperstatus', 'value' ), $np->opts->operstat, $string );
-        $return = ( $r gt $return ) ? $r : $return;
+        $return = $r if ( $return lt $r );
 
         if ( $np->opts->snmpversion > 1 )
         {
-            $r = $return = checkFlag( 'P', $if->getByKey( 'ifpromiscuousmode', 'value' ), $np->opts->promiscuous, $string );
-            $return = ( $r gt $return ) ? $r : $return;
+            $r = checkFlag( 'P', $if->getByKey( 'ifpromiscuousmode', 'value' ), $np->opts->promiscuous, $string );
+            $return = $r if ( $return lt $r );
         }
         return $return;
     }
