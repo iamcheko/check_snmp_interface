@@ -1,6 +1,6 @@
 name: check_snmp_interface
 description: "file:///README.md"
-url: "https://github.com/iamcheko/check_snmp_interface.git"
+url: "https://github.com/iamcheko/check_snmp_interface"
 tags: SNMP,traffic
 vendor: Linux
 target: Operating System
