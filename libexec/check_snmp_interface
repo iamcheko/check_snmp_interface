@@ -1617,6 +1617,9 @@ use Data::Dumper;
     # collect the interface informations and store them in a hash
     $ifobject = getIfObject( $np, $snmp );
 
+    # throw a "unknown" if we have no interfaces to work with
+    $np->nagios_die( 3, "The interface " . $np->opts->name . " is unknown" ) if ( scalar @{ $ifobject->getNames() } eq 0 );
+
     foreach my $if ( sort @{ $ifobject->getNames() } )
     {
         # get data from last check
