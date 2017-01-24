@@ -9,10 +9,10 @@
 #                     interface by SNMP
 #
 #   Autor           : Marek Zavesicky
-#   Copyright (C)   : (2015-2016) Marek Zavesicky
-#   Version         : 0.1.2
+#   Copyright (C)   : (2015-2017) Marek Zavesicky
+#   Version         : 0.1.3
 #   Erstellt        : 2015/10/22
-#   Letztes Update  : 2016/12/01
+#   Letztes Update  : 2017/01/24
 #
 #   Change history  : See "git log"
 #
@@ -1157,7 +1157,7 @@ use Data::Dumper;
     #---------------------------------------------------------------------------
     my $NAME = "check_snmp_interface";
     my $SHORTNAME = "Network Interface";
-    my $VERSION = "0.1.2";
+    my $VERSION = "0.1.3";
     my $LICENSE = "GNU v2 or later, see <http://www.fsf.org/copyleft/gpl.txt>";
 
     #---------------------------------------------------------------------------
