@@ -467,31 +467,59 @@ use Data::Dumper;
         my $self = shift;
         my $value = shift;
         my $unit = shift;
+        my $newvalue = "";
 
-        if ( $unit =~ /Bps/ )
+        if ( $value =~ /:/ )
         {
-            $value *= 8;
-        }
+            # Cut out the numbers and call unitTo recursively
+            foreach( split( ':', $value ) )
+            {
+                my $number = $_;
+                my $char = $_;
 
-        if ( $unit =~ /bps|Bps/ )
-        {
-            return sprintf( "%.2f", $value * $self->_getFactor( substr( $unit, 0, -3 ) ) );
-        }
-        elsif ( $unit eq "%" )
-        {
-            my $speed = $self->getByKey( 'ifspeed', 'value' );
-            if ( $speed eq 0 )
-            {
-                return 0.00;
+                if ( $_ =~ /~/ )
+                {
+                    print "Catched " . $_ . "\n";
+                    $newvalue .= $_ . ":";
+                }
+                else
+                {
+                    $number =~ s/\D//g;
+                    $char =~ s/\d//g;
+                    $number = $self->unitTo( $number, $unit );
+                    $newvalue .= ( $newvalue eq "" ) ? $char . $number . ":" : $char . $number;
+                }
             }
-            else
-            {
-                return sprintf( "%.2f", $speed * $value / 100 );
-            }
+            return $newvalue;
         }
         else
         {
-            return sprintf( "%.2f", $value );
+
+            if ( $unit =~ /Bps/ )
+            {
+                $value *= 8;
+            }
+
+            if ( $unit =~ /bps|Bps/ )
+            {
+                return sprintf( "%.2f", $value * $self->_getFactor( substr( $unit, 0, -3 ) ) );
+            }
+            elsif ( $unit eq "%" )
+            {
+                my $speed = $self->getByKey( 'ifspeed', 'value' );
+                if ( $speed eq 0 )
+                {
+                    return 0.00;
+                }
+                else
+                {
+                    return sprintf( "%.2f", $speed * $value / 100 );
+                }
+            }
+            else
+            {
+                return sprintf( "%.2f", $value );
+            }
         }
     }
 }
@@ -1292,8 +1320,6 @@ use Data::Dumper;
 
         if ( $warning ne "none" and $critical ne "none" )
         {
-            # $warning = $if->unitTo( $warning, $if->getByKey( $key, 'unit' ) );
-            # $critical = $if->unitTo( $critical, $if->getByKey( $key, 'unit' ) );
             $warning = $if->unitTo( $warning, $np->opts->unit );
             $critical = $if->unitTo( $critical, $np->opts->unit );
             $thdoptions->{ 'check' }    = $if->getByKey( $key, 'value' );
