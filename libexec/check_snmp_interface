@@ -1189,8 +1189,8 @@ use Data::Dumper;
             $options->{ Authprotocol }     = $np->opts->authprotocol;
             if ( defined( $np->opts->privpass ) and defined( $np->opts->privproto ) )
             {
-                $options->{ Privpass }     = $np->opts->privpass;
-                $options->{ PrivProto }    = $np->opts->privproto;
+                $options->{ Privpassword }     = $np->opts->privpass;
+                $options->{ PrivProtocol }    = $np->opts->privproto;
             }
         }
         else
